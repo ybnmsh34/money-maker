@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Encoder/Decoder — Free Online Tool</title>
+    <meta name="description" content="Encode and decode URLs. Free online URL encoder/decoder. Works in your browser.">
+    <meta name="keywords" content="url encoder, url decoder, encode url, decode url, percent encoding">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔗</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>URL Encoder / Decoder</h1>
+        <p>Encode or decode URL components and full URLs.</p>
+    </div></header>
+    <main class="container">
+        <div class="tool-workspace">
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Input</span>
+                    <button class="btn btn-secondary btn-small" onclick="clearAll()">Clear</button>
+                </div>
+                <textarea id="url-input" class="tool-input" placeholder="Enter URL or text here..." spellcheck="false"></textarea>
+            </div>
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Output</span>
+                    <button class="btn btn-secondary btn-small" onclick="copyOutput()">Copy</button>
+                </div>
+                <div id="url-output" class="tool-output"></div>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="encode()">Encode</button>
+            <button class="btn btn-primary" onclick="decode()">Decode</button>
+            <button class="btn btn-secondary" onclick="encodeComponent()">Encode Component</button>
+            <button class="btn btn-secondary" onclick="decodeComponent()">Decode Component</button>
+        </div>
+        <div id="url-status" style="margin-top: 16px;"></div>
+        <div style="margin-top: 40px; padding: 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);">
+            <h3>What is URL Encoding?</h3>
+            <p>URL encoding (percent-encoding) converts characters into a format that can be transmitted over the Internet. Characters that have special meaning in URLs (like spaces, &, =) are replaced with a % followed by two hexadecimal digits.</p>
+            <p><strong>Encode</strong> uses <code>encodeURI()</strong> — encodes a full URL, keeping protocol and domain intact. <strong>Encode Component</strong> uses <code>encodeURIComponent()</strong> — encodes everything, useful for URL parameters.</p>
+        </div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const input = document.getElementById('url-input');
+        const output = document.getElementById('url-output');
+        const status = document.getElementById('url-status');
+        let debounceTimer;
+
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { if (input.value.trim()) autoDetect(); }, 300);
+        });
+
+        function isEncoded(str) {
+            return /%[0-9A-Fa-f]{2}/.test(str);
+        }
+
+        function autoDetect() {
+            if (isEncoded(input.value)) decode();
+            else encode();
+        }
+
+        function encode() {
+            const val = input.value;
+            if (!val) return;
+            try { output.textContent = encodeURI(val); showStatus('✓ URL encoded'); }
+            catch (e) { showStatus('✗ ' + e.message, true); }
+        }
+
+        function decode() {
+            const val = input.value;
+            if (!val) return;
+            try { output.textContent = decodeURI(val); showStatus('✓ URL decoded'); }
+            catch (e) { showStatus('✗ ' + e.message, true); }
+        }
+
+        function encodeComponent() {
+            const val = input.value;
+            if (!val) return;
+            try { output.textContent = encodeURIComponent(val); showStatus('✓ Component encoded'); }
+            catch (e) { showStatus('✗ ' + e.message, true); }
+        }
+
+        function decodeComponent() {
+            const val = input.value;
+            if (!val) return;
+            try { output.textContent = decodeURIComponent(val); showStatus('✓ Component decoded'); }
+            catch (e) { showStatus('✗ ' + e.message, true); }
+        }
+
+        function showStatus(msg, isError) {
+            status.innerHTML = '<div class="status-message ' + (isError ? 'status-error' : 'status-success') + '>' + msg + '</div>';
+        }
+
+        function copyOutput() {
+            const text = output.textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => showStatus('✓ Copied!'));
+        }
+
+        function clearAll() {
+            input.value = ''; output.textContent = ''; status.innerHTML = ''; input.focus();
+        }
+    </script>
+</body>
+</html>

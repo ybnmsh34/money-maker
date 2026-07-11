@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unix Timestamp Converter — Free Online Tool</title>
+    <meta name="description" content="Convert Unix timestamps to human-readable dates and vice versa. Free online timestamp converter.">
+    <meta name="keywords" content="unix timestamp converter, timestamp to date, date to timestamp, epoch converter">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕐</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>Unix Timestamp Converter</h1>
+        <p>Convert between Unix timestamps and human-readable dates.</p>
+    </div></header>
+    <main class="container">
+        <div class="tool-panel" style="text-align: center; padding: 24px;">
+            <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">Current Unix Timestamp</div>
+            <div id="current-timestamp" style="font-size: 2rem; font-family: monospace; font-weight: bold; color: var(--accent);"></div>
+            <div id="current-datetime" style="margin-top: 8px; color: var(--text-muted);"></div>
+        </div>
+        <div class="tool-workspace" style="margin-top: 20px;">
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Unix Timestamp</span>
+                    <button class="btn btn-secondary btn-small" onclick="setNow()">Set to Now</button>
+                </div>
+                <div style="padding: 16px;">
+                    <input type="number" id="timestamp-input" style="width: 100%; padding: 12px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-family: monospace; font-size: 1.2rem;" placeholder="Enter Unix timestamp...">
+                    <div style="margin-top: 8px;">
+                        <label style="color: var(--text-muted); font-size: 0.85rem;">
+                            <select id="timestamp-unit" style="padding: 4px 8px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius);">
+                                <option value="seconds">Seconds</option>
+                                <option value="milliseconds">Milliseconds</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Human-Readable Date</span>
+                    <button class="btn btn-secondary btn-small" onclick="copyDate()">Copy</button>
+                </div>
+                <div id="date-output" style="padding: 16px; font-size: 1.1rem;"></div>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="timestampToDate()">Timestamp → Date</button>
+        </div>
+        <div class="tool-panel" style="margin-top: 16px;">
+            <div class="tool-panel-header"><span class="tool-panel-title">Date → Timestamp</span></div>
+            <div style="padding: 16px;">
+                <input type="datetime-local" id="datetime-input" style="width: 100%; padding: 12px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius); font-size: 1rem;">
+                <div id="date-to-timestamp" style="margin-top: 12px; font-family: monospace; font-size: 1.1rem;"></div>
+            </div>
+        </div>
+        <div id="ts-status" style="margin-top: 16px;"></div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const tsInput = document.getElementById('timestamp-input');
+        const tsUnit = document.getElementById('timestamp-unit');
+        const dateOutput = document.getElementById('date-output');
+        const dtInput = document.getElementById('datetime-input');
+        const dtOutput = document.getElementById('date-to-timestamp');
+        const status = document.getElementById('ts-status');
+        const currentTs = document.getElementById('current-timestamp');
+        const currentDt = document.getElementById('current-datetime');
+
+        function updateCurrent() {
+            const now = Math.floor(Date.now() / 1000);
+            currentTs.textContent = now;
+            tsInput.value = now;
+            const d = new Date();
+            currentDt.textContent = d.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
+            timestampToDate();
+        }
+
+        function timestampToDate() {
+            const ts = parseFloat(tsInput.value);
+            if (isNaN(ts)) { dateOutput.textContent = 'Enter a valid timestamp'; return; }
+            const ms = tsUnit.value === 'milliseconds' ? ts : ts * 1000;
+            const d = new Date(ms);
+            if (isNaN(d.getTime())) { dateOutput.textContent = 'Invalid timestamp'; return; }
+            const info = [
+                '<strong>' + d.toLocaleString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '</strong>',
+                '<br><br>UTC: ' + d.toUTCString(),
+                '<br>ISO: ' + d.toISOString(),
+                '<br>Local: ' + d.toString(),
+            ].join('');
+            dateOutput.innerHTML = info;
+        }
+
+        function setNow() {
+            tsInput.value = Math.floor(Date.now() / 1000);
+            timestampToDate();
+        }
+
+        function copyDate() {
+            const text = dateOutput.textContent;
+            if (!text) return;
+            navigator.clipboard.writeText(text).then(() => {
+                status.innerHTML = '<div class="status-message status-success">✓ Copied!</div>';
+            });
+        }
+
+        tsInput.addEventListener('input', timestampToDate);
+        tsUnit.addEventListener('change', timestampToDate);
+
+        dtInput.addEventListener('input', () => {
+            const dt = new Date(dtInput.value);
+            if (isNaN(dt.getTime())) { dtOutput.textContent = ''; return; }
+            dtOutput.innerHTML = 'Seconds: <strong>' + Math.floor(dt.getTime() / 1000) + '</strong><br>Milliseconds: <strong>' + dt.getTime() + '</strong>';
+        });
+
+        updateCurrent();
+        setInterval(updateCurrent, 1000);
+    </script>
+</body>
+</html>
