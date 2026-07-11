@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV to JSON Converter — Free Online Tool</title>
+    <meta name="description" content="Convert CSV data to JSON format instantly. Free online CSV to JSON converter. Works in your browser.">
+    <meta name="keywords" content="csv to json, csv json converter, convert csv to json">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📋</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>CSV to JSON Converter</h1>
+        <p>Convert CSV data to JSON format instantly.</p>
+    </div></header>
+    <main class="container">
+        <div class="tool-workspace">
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">CSV Input</span>
+                    <button class="btn btn-secondary btn-small" onclick="loadSample()">Sample</button>
+                </div>
+                <textarea id="csv-input" class="tool-input" placeholder="name,age,city&#10;Alice,30,New York&#10;Bob,25,London" spellcheck="false"></textarea>
+            </div>
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">JSON Output</span>
+                <div><button class="btn btn-secondary btn-small" onclick="copyOutput()">Copy</button> <button class="btn btn-secondary btn-small" onclick="downloadJSON()">Download</button></div>
+                </div>
+                <div id="json-output" class="tool-output" style="white-space: pre;"></div>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="convert()">CSV → JSON</button>
+        </div>
+        <div id="status" style="margin-top: 16px;"></div>
+        <div style="margin-top: 20px;">
+            <a href="json-to-csv.html" style="color: var(--accent);">Need JSON → CSV instead? Click here →</a>
+        </div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const input = document.getElementById('csv-input');
+        const output = document.getElementById('json-output');
+        const status = document.getElementById('status');
+
+        function parseCSVLine(line) {
+            const result = [];
+            let current = '', inQuotes = false;
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQuotes) {
+                    if (ch === '"' && line[i+1] === '"') { current += '"'; i++; }
+                    else if (ch === '"') inQuotes = false;
+                    else current += ch;
+                } else {
+                    if (ch === '"') inQuotes = true;
+                    else if (ch === ',') { result.push(current); current = ''; }
+                    else current += ch;
+                }
+            }
+            result.push(current);
+            return result;
+        }
+
+        function convert() {
+            const raw = input.value.trim();
+            if (!raw) return;
+            try {
+                const lines = raw.split('\n').map(l => l.replace(/\r$/, '')).filter(l => l.trim());
+                if (lines.length < 2) { showStatus('CSV needs at least a header row and one data row', true); return; }
+                const headers = parseCSVLine(lines[0]);
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const vals = parseCSVLine(lines[i]);
+                    const obj = {};
+                    headers.forEach((h, j) => {
+                        let v = vals[j] || '';
+                        if (v === '' || v === 'null' || v === 'undefined') { obj[h] = null; }
+                        else if (v === 'true') obj[h] = true;
+                        else if (v === 'false') obj[h] = false;
+                        else if (/^-?\d+$/.test(v)) obj[h] = parseInt(v);
+                        else if (/^-?\d+\.\d+$/.test(v)) obj[h] = parseFloat(v);
+                        else obj[h] = v;
+                    });
+                    data.push(obj);
+                }
+                output.textContent = JSON.stringify(data, null, 2);
+                showStatus('✓ Converted ' + data.length + ' rows');
+            } catch (e) { showStatus('✗ ' + e.message, true); }
+        }
+
+        function showStatus(msg, isError) {
+            status.innerHTML = '<div class="status-message ' + (isError ? 'status-error' : 'status-success') + '>' + msg + '</div>';
+        }
+
+        function copyOutput() { if (!output.textContent) return; navigator.clipboard.writeText(output.textContent).then(() => showStatus('✓ Copied!')); }
+        function downloadJSON() { if (!output.textContent) return; const blob = new Blob([output.textContent], { type: 'application/json' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data.json'; a.click(); URL.revokeObjectURL(a.href); }
+        function loadSample() { input.value = 'name,age,city\nAlice,30,New York\nBob,25,London\nCharlie,35,Tokyo'; convert(); }
+    </script>
+</body>
+</html>
