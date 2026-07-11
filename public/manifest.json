@@ -1,0 +1,10 @@
+{
+    "name": "DevUtils - Free Developer Tools",
+    "short_name": "DevUtils",
+    "description": "Free online developer tools: JSON formatter, base64 encoder, UUID generator, and more.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0f0f1a",
+    "theme_color": "#6c63ff",
+    "icons": []
+}
