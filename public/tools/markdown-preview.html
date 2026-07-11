@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Preview — Free Online Tool</title>
+    <meta name="description" content="Write Markdown and see live preview. Free online Markdown editor and previewer.">
+    <meta name="keywords" content="markdown preview, markdown editor, markdown to html, md preview">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>M↓</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>Markdown Preview</h1>
+        <p>Write Markdown on the left, see live preview on the right.</p>
+    </div></header>
+    <main class="container">
+        <div class="tool-workspace">
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Markdown</span>
+                    <button class="btn btn-secondary btn-small" onclick="loadSample()">Sample</button>
+                </div>
+                <textarea id="md-input" class="tool-input" placeholder="Write your Markdown here..." spellcheck="false"></textarea>
+            </div>
+            <div class="tool-panel">
+                <div class="tool-panel-header"><span class="tool-panel-title">Preview</span>
+                    <button class="btn btn-secondary btn-small" onclick="copyHtml()">Copy HTML</button>
+                </div>
+                <div id="md-output" class="md-preview"></div>
+            </div>
+        </div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const input = document.getElementById('md-input');
+        const output = document.getElementById('md-output');
+        let debounceTimer;
+
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { render(); }, 150);
+        });
+
+        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+        function parseInline(text) {
+            // Bold **text** or __text__
+            text = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            text = text.replace(/__(.+?)__/g, '<strong>$1</strong>');
+            // Italic *text* or _text_
+            text = text.replace(/\*(.+?)\*/g, '<em>$1</em>');
+            text = text.replace(/_(.+?)_/g, '<em>$1</em>');
+            // Strikethrough ~~text~~
+            text = text.replace(/~~(.+?)~~/g, '<del>$1</del>');
+            // Inline code `text`
+            text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Links [text](url)
+            text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+            // Images ![alt](url)
+            text = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">');
+            return text;
+        }
+
+        function render() {
+            const text = input.value;
+            const lines = text.split('\n');
+            let html = '';
+            let inCodeBlock = false;
+            let codeContent = '';
+            let inList = false;
+            let listType = '';
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+
+                // Code blocks
+                if (line.trim().startsWith('```')) {
+                    if (inCodeBlock) {
+                        html += '<pre><code>' + escapeHtml(codeContent.replace(/\n$/, '')) + '</code></pre>';
+                        codeContent = '';
+                        inCodeBlock = false;
+                    } else {
+                        if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+                        inCodeBlock = true;
+                    }
+                    continue;
+                }
+
+                if (inCodeBlock) {
+                    codeContent += line + '\n';
+                    continue;
+                }
+
+                // Empty line
+                if (line.trim() === '') {
+                    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+                    continue;
+                }
+
+                // Headings
+                const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
+                if (headingMatch) {
+                    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+                    const level = headingMatch[1].length;
+                    html += '<h' + level + '>' + parseInline(headingMatch[2]) + '</h' + level + '>';
+                    continue;
+                }
+
+                // Horizontal rule
+                if (/^(-{3,}|_{3,}|\*{3,})$/.test(line.trim())) {
+                    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+                    html += '<hr>';
+                    continue;
+                }
+
+                // Blockquote
+                if (line.trim().startsWith('>')) {
+                    if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+                    html += '<blockquote>' + parseInline(line.trim().substring(1)) + '</blockquote>';
+                    continue;
+                }
+
+                // Unordered list
+                if (/^[\s]*[-*+]\s+/.test(line)) {
+                    if (!inList || listType !== 'ul') {
+                        if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
+                        html += '<ul>';
+                        inList = true;
+                        listType = 'ul';
+                    }
+                    html += '<li>' + parseInline(line.replace(/^[\s]*[-*+]\s+/, '')) + '</li>';
+                    continue;
+                }
+
+                // Ordered list
+                if (/^\s*\d+\.\s+/.test(line)) {
+                    if (!inList || listType !== 'ol') {
+                        if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
+                        html += '<ol>';
+                        inList = true;
+                        listType = 'ol';
+                    }
+                    html += '<li>' + parseInline(line.replace(/^\s*\d+\.\s+/, '')) + '</li>';
+                    continue;
+                }
+
+                // Close list if we're in one
+                if (inList) { html += listType === 'ul' ? '</ul>' : '</ol>'; inList = false; }
+
+                // Regular paragraph
+                html += '<p>' + parseInline(line) + '</p>';
+            }
+
+            if (inCodeBlock) html += '<pre><code>' + escapeHtml(codeContent) + '</code></pre>';
+            if (inList) html += listType === 'ul' ? '</ul>' : '</ol>';
+
+            output.innerHTML = html;
+        }
+
+        function copyHtml() {
+            navigator.clipboard.writeText(output.innerHTML).then(() => {
+                alert('HTML copied to clipboard!');
+            });
+        }
+
+        function loadSample() {
+            input.value = '# Welcome to DevUtils\n\nThis is a **Markdown** preview tool. You can write Markdown on the left and see the *live preview* on the right.\n\n## Features\n\n- **Bold** and *italic* text\n- Code blocks and `inline code`\n- Links and images\n- Lists (ordered and unordered)\n\n### Code Example\n\n```javascript\nfunction greet(name) {\n    return `Hello, ${name}!`;\n}\n\nconsole.log(greet("World"));\n```\n\n> "The best way to predict the future is to create it." — Peter Drucker\n\nVisit [DevUtils](https://example.com) for more tools.\n\n---\n\n1. First item\n2. Second item\n3. Third item';
+            render();
+        }
+
+        loadSample();
+    </script>
+</body>
+</html>

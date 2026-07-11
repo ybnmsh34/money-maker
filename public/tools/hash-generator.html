@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Generator — Free Online Tool</title>
+    <meta name="description" content="Generate MD5, SHA-1, SHA-256, SHA-512 hashes. Free online hash generator. Works in your browser.">
+    <meta name="keywords" content="hash generator, md5 generator, sha256 generator, sha1 generator, sha512 generator">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>##</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>Hash Generator</h1>
+        <p>Generate SHA-256, SHA-384, SHA-512, and SHA-1 hashes from text.</p>
+    </div></header>
+    <main class="container">
+        <div class="tool-panel">
+            <div class="tool-panel-header"><span class="tool-panel-title">Input</span>
+                <button class="btn btn-secondary btn-small" onclick="clearAll()">Clear</button>
+            </div>
+            <textarea id="hash-input" class="tool-input" placeholder="Enter text to hash..." spellcheck="false"></textarea>
+        </div>
+        <div id="hash-output" style="margin-top: 16px;"></div>
+        <div id="hash-status" style="margin-top: 16px;"></div>
+        <div style="margin-top: 40px; padding: 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);">
+            <h3>What is a Hash?</h3>
+            <p>A cryptographic hash function takes an input and produces a fixed-size string of bytes. The output (hash) is unique to the input — even a small change produces a completely different hash.</p>
+            <p>Hashes are used for password storage, data integrity verification, digital signatures, and more. SHA-256 is the most commonly used algorithm today.</p>
+        </div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const input = document.getElementById('hash-input');
+        const output = document.getElementById('hash-output');
+        const status = document.getElementById('hash-status');
+        let debounceTimer;
+
+        input.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => { if (input.value) generateAll(); }, 200);
+        });
+
+        async function hashText(algorithm, text) {
+            const encoder = new TextEncoder();
+            const data = encoder.encode(text);
+            const hashBuffer = await crypto.subtle.digest(algorithm, data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        async function generateAll() {
+            const text = input.value;
+            if (!text) { output.innerHTML = ''; return; }
+            
+            const algorithms = [
+                { name: 'SHA-1', algo: 'SHA-1' },
+                { name: 'SHA-256', algo: 'SHA-256' },
+                { name: 'SHA-384', algo: 'SHA-384' },
+                { name: 'SHA-512', algo: 'SHA-512' },
+            ];
+
+            let html = '';
+            for (const a of algorithms) {
+                const hash = await hashText(a.algo, text);
+                html += '<div class="tool-panel" style="margin-bottom: 12px;">' +
+                    '<div class="tool-panel-header"><span class="tool-panel-title">' + a.name + '</span>' +
+                    '<button class="btn btn-secondary btn-small" onclick="copyHash(\'' + a.name + '\')">Copy</button></div>' +
+                    '<div class="tool-output" id="hash-' + a.name.toLowerCase().replace(/-/g, '') + '" style="min-height: auto; padding: 12px 16px; word-break: break-all;">' + escapeHtml(hash) + '</div></div>';
+            }
+            output.innerHTML = html;
+        }
+
+        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+        function copyHash(name) {
+            const el = document.getElementById('hash-' + name.toLowerCase().replace(/-/g, ''));
+            if (!el) return;
+            navigator.clipboard.writeText(el.textContent).then(() => {
+                status.innerHTML = '<div class="status-message status-success">✓ ' + name + ' copied!</div>';
+            });
+        }
+
+        function clearAll() {
+            input.value = ''; output.innerHTML = ''; status.innerHTML = ''; input.focus();
+        }
+    </script>
+</body>
+</html>

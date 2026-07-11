@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UUID Generator — Free Online Tool</title>
+    <meta name="description" content="Generate UUIDs (v4) instantly. Free online UUID generator. Fast, private, works in your browser.">
+    <meta name="keywords" content="uuid generator, guid generator, uuid v4, generate uuid, random uuid">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>#</text></svg>">
+</head>
+<body>
+    <nav class="navbar"><div class="container"><a href="/" class="logo">⚡ DevUtils</a><div class="nav-links"><a href="/#tools">All Tools</a></div></div></nav>
+    <header class="tool-page-header"><div class="container">
+        <a href="/" class="back-link">← Back to all tools</a>
+        <h1>UUID Generator</h1>
+        <p>Generate random UUIDs (version 4) instantly.</p>
+    </div></header>
+    <main class="container">
+        <div class="controls-row" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);">
+            <label for="uuid-count">Generate:</label>
+            <select id="uuid-count">
+                <option value="1">1 UUID</option>
+                <option value="5" selected>5 UUIDs</option>
+                <option value="10">10 UUIDs</option>
+                <option value="25">25 UUIDs</option>
+                <option value="50">50 UUIDs</option>
+                <option value="100">100 UUIDs</option>
+            </select>
+            <label for="uuid-format">Format:</label>
+            <select id="uuid-format">
+                <option value="default">Standard (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)</option>
+                <option value="lower">Lowercase</option>
+                <option value="upper">UPPERCASE</option>
+                <option value="nodash">No dashes</option>
+            </select>
+        </div>
+        <div class="tool-panel" style="margin-top: 16px;">
+            <div class="tool-panel-header"><span class="tool-panel-title">Generated UUIDs</span>
+                <div><button class="btn btn-secondary btn-small" onclick="copyAll()">Copy All</button> <button class="btn btn-secondary btn-small" onclick="copyAsArray()">Copy as JSON Array</button></div>
+            </div>
+            <div id="uuid-output" class="uuid-list"></div>
+        </div>
+        <div class="btn-group" style="margin-top: 16px;">
+            <button class="btn btn-primary" onclick="generate()">Generate UUIDs</button>
+        </div>
+        <div id="uuid-status" style="margin-top: 16px;"></div>
+        <div style="margin-top: 40px; padding: 24px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);">
+            <h3>What is a UUID?</h3>
+            <p>A UUID (Universally Unique Identifier) is a 128-bit value used to identify information in computer systems. UUID version 4 is randomly generated and has a very low probability of collision.</p>
+            <p>UUIDs are commonly used in databases, distributed systems, and APIs to generate unique identifiers without coordination.</p>
+        </div>
+    </main>
+    <footer class="footer"><div class="container"><p>&copy; 2026 DevUtils. Free developer tools for everyone.</p></div></footer>
+    <script>
+        const output = document.getElementById('uuid-output');
+        const status = document.getElementById('uuid-status');
+        let lastUuids = [];
+
+        function generateOne() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = crypto.getRandomValues(new Uint8Array(1))[0] % 16;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        function formatUuid(uuid) {
+            const fmt = document.getElementById('uuid-format').value;
+            switch (fmt) {
+                case 'lower': return uuid.toLowerCase();
+                case 'upper': return uuid.toUpperCase();
+                case 'nodash': return uuid.replace(/-/g, '').toLowerCase();
+                default: return uuid;
+            }
+        }
+
+        function generate() {
+            const count = parseInt(document.getElementById('uuid-count').value);
+            lastUuids = [];
+            const items = [];
+            for (let i = 0; i < count; i++) {
+                const uuid = generateOne();
+                lastUuids.push(uuid);
+                const formatted = formatUuid(uuid);
+                items.push('<div class="uuid-item" onclick="copySingle(this, \'' + formatted + '\')" title="Click to copy">' + escapeHtml(formatted) + '</div>');
+            }
+            output.innerHTML = items.join('');
+            status.innerHTML = '<div class="status-message status-success">✓ Generated ' + count + ' UUID(s)</div>';
+        }
+
+        function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+        function copySingle(el, text) {
+            navigator.clipboard.writeText(text).then(() => {
+                status.innerHTML = '<div class="status-message status-success">✓ Copied: ' + escapeHtml(text) + '</div>';
+            });
+        }
+
+        function copyAll() {
+            if (!lastUuids.length) return;
+            const text = lastUuids.map(u => formatUuid(u)).join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                status.innerHTML = '<div class="status-message status-success">✓ Copied all UUIDs!</div>';
+            });
+        }
+
+        function copyAsArray() {
+            if (!lastUuids.length) return;
+            const arr = lastUuids.map(u => '"' + formatUuid(u) + '"');
+            navigator.clipboard.writeText('[' + arr.join(', ') + ']').then(() => {
+                status.innerHTML = '<div class="status-message status-success">✓ Copied as JSON array!</div>';
+            });
+        }
+
+        // Generate on load
+        generate();
+    </script>
+</body>
+</html>
