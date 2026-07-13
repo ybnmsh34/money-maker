@@ -1,46 +1,112 @@
-# DevUtils — Free Developer Tools
+# FileTools - Free Online File Conversion Tools
 
-A collection of free, browser-based developer tools. All processing happens locally in your browser — your data never leaves your device.
+A modern, fast, and private online file conversion platform. All processing happens in your browser — no server uploads, no data collection.
 
-## Tools
+## Research-Backed Tool Selection
 
-1. **JSON Formatter** — Format, validate, beautify, and minify JSON
-2. **Base64 Converter** — Encode and decode Base64 strings
-3. **UUID Generator** — Generate random UUIDs (v4)
-4. **Regex Tester** — Test regular expressions with live matching
-5. **Hash Generator** — Generate SHA-1, SHA-256, SHA-384, SHA-512 hashes
-6. **Color Converter** — Convert between HEX, RGB, and HSL
-7. **Lorem Ipsum Generator** — Generate placeholder text
-8. **Markdown Preview** — Write Markdown and see live preview
-9. **Password Generator** — Generate strong, secure passwords
-10. **URL Encoder/Decoder** — Encode and decode URLs
-11. **Timestamp Converter** — Convert Unix timestamps to dates
+Built based on deep research into high-demand file conversion tools. The tools selected target the most visited categories:
+
+| Tool | Demand | Why It Works |
+|------|--------|--------------|
+| Image Converter | Very High | Universal need for format conversion |
+| Image Compressor | Very High | Reduce file size for web/email |
+| PDF Compressor | Very High | Reduce PDF file size |
+| PDF Merge | Very High | Combine multiple PDFs |
+| QR Code Generator | High | Trending, high search volume |
+| Image Resizer | High | Resize for social media/web |
+| Image to PDF | High | Combine images into PDF |
+
+## Features
+
+- **100% Client-Side** — No files uploaded to servers
+- **No Signup** — Use immediately, no accounts
+- **No Limits** — Unlimited conversions
+- **Privacy First** — Files never leave your browser
+- **Fast** — Instant processing with modern web APIs
 
 ## Local Development
 
 ```bash
-# Start local server
-npx http-server public -p 3000
+cd money-maker
+npm install
+npm start
 ```
 
-## Deploy to GitHub Pages
+Open http://localhost:3000
 
-1. Create a new repository on GitHub
-2. Add it as remote:
-   ```bash
-   git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
-   git branch -M main
-   git push -u origin main
-   ```
-3. Go to Settings → Pages → Source → Deploy from branch → Select `main` branch, `/ (root)`
-4. Your site will be live at `https://YOUR_USERNAME.github.io/YOUR_REPO/`
+## Deployment
 
-## Deploy to Netlify
+### Netlify (Recommended — Free)
+
+1. Push to GitHub
+2. Connect to Netlify
+3. Deploy from `public` folder
+
+### GitHub Pages (Free)
+
+1. Push `public` folder to repository
+2. Enable GitHub Pages in repository settings
+3. Site live at `https://username.github.io/repo`
+
+### Vercel (Free)
+
+1. Push to GitHub
+2. Import to Vercel
+3. Auto-deployed
+
+### Heroku / Railway / Render
 
 ```bash
-npm install -g netlify-cli
-netlify deploy --prod --dir=public
+git push heroku main
+# or
+railway up
 ```
+
+## Monetization
+
+- **AdSense** — Add ads after gaining traffic
+- **Freemium** — Basic tools free, premium features paid
+- **Affiliate** — Recommend related products/services
+- **API** — Offer API access for developers
+
+## Tech Stack
+
+- Vanilla JavaScript (no framework overhead)
+- PDF-Lib for PDF operations
+- Canvas API for image processing
+- QRCode Generator library
+- Service Worker for offline support
+
+## SEO Strategy
+
+- Each tool is a separate page (better for SEO)
+- Meta descriptions optimized for search
+- Structured data for tools
+- Fast loading (no heavy frameworks)
+- Mobile responsive
+
+## Tools Status
+
+### ✅ Live
+- Image Converter
+- Image Compressor
+- Image Resizer
+- Bulk Image Converter
+- Image Cropper
+- Image to PDF
+- PDF Compressor
+- PDF Merge
+- PDF Split
+- QR Code Generator
+- CSV to JSON
+- JSON to CSV
+
+### 🚧 Coming Soon
+- PDF to Word
+- PDF to Image
+- Word to PDF
+- HTML to PDF
+- Universal File Converter
 
 ## License
 

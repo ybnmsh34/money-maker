@@ -2,34 +2,63 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
+const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
-const mimeTypes = {
+const MIME_TYPES = {
     '.html': 'text/html',
     '.css': 'text/css',
     '.js': 'application/javascript',
     '.json': 'application/json',
     '.png': 'image/png',
     '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
     '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.pdf': 'application/pdf',
+    '.txt': 'text/plain',
+    '.xml': 'application/xml',
+    '.wasm': 'application/wasm',
 };
 
 const server = http.createServer((req, res) => {
-    let filePath = path.join(PUBLIC_DIR, req.url === '/' ? 'index.html' : req.url);
-    const ext = path.extname(filePath);
+    let filePath = path.join(PUBLIC_DIR, req.url === '/' ? '/index.html' : req.url.split('?')[0]);
+    filePath = path.resolve(filePath);
     
-    fs.readFile(filePath, (err, data) => {
+    // Security: prevent directory traversal
+    if (!filePath.startsWith(PUBLIC_DIR)) {
+        res.writeHead(403);
+        res.end('Forbidden');
+        return;
+    }
+    
+    const ext = path.extname(filePath).toLowerCase();
+    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    
+    fs.readFile(filePath, (err, content) => {
         if (err) {
-            res.writeHead(404);
-            res.end('Not Found');
-            return;
+            if (err.code === 'ENOENT') {
+                res.writeHead(404);
+                res.end('404 Not Found');
+            } else {
+                res.writeHead(500);
+                res.end('Server Error');
+            }
+        } else {
+            // Never cache CSS/JS - always serve latest
+            const headers = {
+                'Content-Type': contentType,
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            };
+            res.writeHead(200, headers);
+            res.end(content);
         }
-        res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'text/plain' });
-        res.end(data);
     });
 });
 
 server.listen(PORT, () => {
-    console.log(`Server running at http://localhost:${PORT}`);
+    console.log(`FileTools running at http://localhost:${PORT}`);
 });

@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal File Converter - Convert Any File Format | FileTools</title>
+    <meta name="description" content="Convert between 300+ file formats. Documents, images, audio, video. Free and fast.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>Universal File Converter</h1>
+            <p>Convert between 300+ file formats. Documents, images, audio, video.</p>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Drop any file here or click to select</h3>
+            <p>Supports 300+ file formats</p>
+            <input type="file" id="fileInput" hidden>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div class="tool-options" id="options" style="display:none;">
+            <div class="option-group">
+                <label>Convert to</label>
+                <select id="format">
+                    <optgroup label="Images">
+                        <option value="png">PNG</option>
+                        <option value="jpg">JPG</option>
+                        <option value="webp">WebP</option>
+                        <option value="gif">GIF</option>
+                        <option value="bmp">BMP</option>
+                        <option value="svg">SVG</option>
+                    </optgroup>
+                    <optgroup label="Documents">
+                        <option value="pdf">PDF</option>
+                        <option value="doc">Word</option>
+                        <option value="docx">Word (New)</option>
+                        <option value="txt">Text</option>
+                        <option value="html">HTML</option>
+                        <option value="csv">CSV</option>
+                        <option value="json">JSON</option>
+                    </optgroup>
+                    <optgroup label="Audio">
+                        <option value="mp3">MP3</option>
+                        <option value="wav">WAV</option>
+                        <option value="ogg">OGG</option>
+                        <option value="flac">FLAC</option>
+                    </optgroup>
+                    <optgroup label="Video">
+                        <option value="mp4">MP4</option>
+                        <option value="avi">AVI</option>
+                        <option value="mov">MOV</option>
+                        <option value="webm">WebM</option>
+                    </optgroup>
+                </select>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button class="btn btn-primary" onclick="convertFile()">Convert</button>
+                <button class="btn btn-secondary" onclick="clearFile()">Clear</button>
+            </div>
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display:none;">
+            <div class="progress" id="progress" style="width:0%"></div>
+        </div>
+
+        <div class="result-area" id="resultArea" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Conversion Complete!</h3>
+            <p id="resultText"></p>
+            <div class="result-buttons">
+                <button class="btn btn-primary" onclick="downloadResult()">⬇ Download</button>
+            </div>
+        </div>
+
+        <div style="margin-top:40px;padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;">
+            <h3 style="margin-bottom:16px;">Supported Formats</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;">
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Images:</strong> PNG, JPG, WebP, GIF, BMP, SVG, TIFF</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Documents:</strong> PDF, Word, Excel, PowerPoint, TXT, HTML</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Data:</strong> CSV, JSON, XML, YAML, SQL</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Audio:</strong> MP3, WAV, OGG, FLAC, AAC</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Video:</strong> MP4, AVI, MOV, WebM, MKV</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;"><strong>Archives:</strong> ZIP, RAR, 7Z, TAR, GZ</div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="../js/tool-common.js"></script>
+    <script>
+        let currentFile = null;
+        let resultBlob = null;
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const options = document.getElementById('options');
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                currentFile = e.target.files[0];
+                fileList.innerHTML = `<div class="file-item"><span class="file-name">${currentFile.name}</span><span class="file-size">${formatBytes(currentFile.size)}</span><span class="file-remove" onclick="clearFile()">×</span></div>`;
+                options.style.display = 'block';
+                
+                // Auto-select format based on file type
+                const format = document.getElementById('format');
+                if (currentFile.type.startsWith('image/')) {
+                    format.querySelector('optgroup[label="Images"]').selected = true;
+                } else if (currentFile.type === 'application/pdf') {
+                    format.querySelector('optgroup[label="Documents"]').selected = true;
+                }
+            }
+        });
+        setupDragDrop(uploadZone, (fl) => {
+            if (fl.length > 0) {
+                currentFile = fl[0];
+                fileList.innerHTML = `<div class="file-item"><span class="file-name">${currentFile.name}</span><span class="file-size">${formatBytes(currentFile.size)}</span><span class="file-remove" onclick="clearFile()">×</span></div>`;
+                options.style.display = 'block';
+            }
+        });
+
+        function clearFile() {
+            currentFile = null;
+            fileList.innerHTML = '';
+            options.style.display = 'none';
+            document.getElementById('resultArea').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+        }
+
+        async function convertFile() {
+            if (!currentFile) return;
+
+            const progressBar = document.getElementById('progressBar');
+            const progress = document.getElementById('progress');
+            const resultArea = document.getElementById('resultArea');
+            const targetFormat = document.getElementById('format').value;
+
+            progressBar.style.display = 'block';
+            resultArea.style.display = 'none';
+            progress.style.width = '30%';
+
+            try {
+                let blob;
+                const baseName = getFileNameWithoutExt(currentFile.name);
+                
+                // Image conversions
+                if (currentFile.type.startsWith('image/')) {
+                    blob = await convertImage(currentFile, targetFormat);
+                }
+                // PDF conversions
+                else if (currentFile.type === 'application/pdf') {
+                    blob = await convertPDF(currentFile, targetFormat);
+                }
+                // Document conversions
+                else if (currentFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || 
+                         currentFile.name.endsWith('.docx')) {
+                    blob = await convertWord(currentFile, targetFormat);
+                }
+                // CSV/JSON conversions
+                else if (currentFile.name.endsWith('.csv')) {
+                    blob = await convertCSV(currentFile, targetFormat);
+                }
+                else if (currentFile.name.endsWith('.json')) {
+                    blob = await convertJSON(currentFile, targetFormat);
+                }
+                // HTML conversions
+                else if (currentFile.name.endsWith('.html') || currentFile.name.endsWith('.htm')) {
+                    blob = await convertHTML(currentFile, targetFormat);
+                }
+                else {
+                    alert('This file type is not yet supported for conversion. Try our specific tools instead.');
+                    progressBar.style.display = 'none';
+                    return;
+                }
+
+                resultBlob = blob;
+                progress.style.width = '100%';
+                progressBar.style.display = 'none';
+                resultArea.style.display = 'block';
+                document.getElementById('resultText').textContent = `${currentFile.name} → ${baseName}.${targetFormat} (${formatBytes(blob.size)})`;
+            } catch (err) {
+                console.error('Conversion failed:', err);
+                alert('Conversion failed. Please try a different format.');
+                progressBar.style.display = 'none';
+            }
+        }
+
+        async function convertImage(file, format) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = imageToCanvas(img);
+                        const mimeType = `image/${format}`;
+                        canvas.toBlob((blob) => {
+                            if (blob) resolve(blob);
+                            else reject(new Error('Conversion failed'));
+                        }, mimeType, 0.95);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function convertPDF(file, format) {
+            if (format === 'txt') {
+                const pdfjsLib = await loadPDFJS();
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let text = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(item => item.str).join(' ') + '\n';
+                }
+                return new Blob([text], { type: 'text/plain' });
+            }
+            return convertImage(file, format);
+        }
+
+        async function convertWord(file, format) {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            
+            if (format === 'html') {
+                return new Blob([result.value], { type: 'text/html' });
+            } else if (format === 'txt') {
+                return new Blob([result.value.replace(/<[^>]*>/g, '')], { type: 'text/plain' });
+            } else if (format === 'pdf') {
+                const element = document.createElement('div');
+                element.innerHTML = result.value;
+                element.style.padding = '40px';
+                element.style.fontFamily = 'Arial, sans-serif';
+                document.body.appendChild(element);
+                const pdf = await html2pdf().set({
+                    margin: 10,
+                    filename: `${getFileNameWithoutExt(file.name)}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4' }
+                }).from(element).outputPromise('blob');
+                document.body.removeChild(element);
+                return pdf;
+            }
+            return new Blob([result.value], { type: 'text/html' });
+        }
+
+        async function convertCSV(file, format) {
+            const text = await file.text();
+            const lines = text.split('\n').filter(l => l.trim());
+            const headers = lines[0].split(',').map(h => h.trim());
+            
+            if (format === 'json') {
+                const data = lines.slice(1).map(line => {
+                    const values = line.split(',');
+                    const obj = {};
+                    headers.forEach((h, i) => obj[h] = values[i]?.trim());
+                    return obj;
+                });
+                return new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            }
+            return new Blob([text], { type: 'text/csv' });
+        }
+
+        async function convertJSON(file, format) {
+            const text = await file.text();
+            const data = JSON.parse(text);
+            
+            if (format === 'csv') {
+                const arr = Array.isArray(data) ? data : [data];
+                const headers = Object.keys(arr[0]);
+                const csv = [headers.join(','), ...arr.map(row => 
+                    headers.map(h => `"${(row[h]||'').toString().replace(/"/g,'""')}"`).join(',')
+                )].join('\n');
+                return new Blob([csv], { type: 'text/csv' });
+            }
+            return new Blob([text], { type: 'application/json' });
+        }
+
+        async function convertHTML(file, format) {
+            const text = await file.text();
+            
+            if (format === 'pdf') {
+                const element = document.createElement('div');
+                element.innerHTML = text;
+                element.style.padding = '40px';
+                element.style.fontFamily = 'Arial, sans-serif';
+                document.body.appendChild(element);
+                const pdf = await html2pdf().set({
+                    margin: 10,
+                    filename: `${getFileNameWithoutExt(file.name)}.pdf`,
+                    html2canvas: { scale: 2 },
+                    jsPDF: { unit: 'mm', format: 'a4' }
+                }).from(element).outputPromise('blob');
+                document.body.removeChild(element);
+                return pdf;
+            } else if (format === 'txt') {
+                const doc = new DOMParser().parseFromString(text, 'text/html');
+                return new Blob([doc.body.textContent], { type: 'text/plain' });
+            }
+            return new Blob([text], { type: 'text/html' });
+        }
+
+        function loadPDFJS() {
+            return new Promise((resolve, reject) => {
+                if (window.pdfjsLib) {
+                    resolve(window.pdfjsLib);
+                } else {
+                    const script = document.createElement('script');
+                    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+                    script.onload = () => {
+                        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                        resolve(window.pdfjsLib);
+                    };
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                }
+            });
+        }
+
+        function downloadResult() {
+            if (resultBlob) {
+                const targetFormat = document.getElementById('format').value;
+                const baseName = getFileNameWithoutExt(currentFile.name);
+                downloadBlob(resultBlob, `${baseName}.${targetFormat}`);
+            }
+        }
+    </script>
+</body>
+</html>

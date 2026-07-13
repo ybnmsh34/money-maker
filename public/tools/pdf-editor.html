@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Editor - Edit PDF Files Online | FileTools</title>
+    <meta name="description" content="Edit PDF files online. Add text, images, annotations, highlights. Free, fast, private.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>PDF Editor</h1>
+            <p>Edit your PDF files directly. Add text, images, highlights, and annotations.</p>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/></svg>
+            <h3>Drop PDF file here or click to select</h3>
+            <p>PDF files only</p>
+            <input type="file" id="fileInput" accept="application/pdf" hidden>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div id="editorContainer" style="display:none;">
+            <div class="editor-toolbar" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius);padding:16px;margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                <button class="btn btn-secondary" onclick="setTool('select')" id="toolSelect">Select</button>
+                <button class="btn btn-secondary" onclick="setTool('text')" id="toolText">Add Text</button>
+                <button class="btn btn-secondary" onclick="setTool('highlight')" id="toolHighlight">Highlight</button>
+                <button class="btn btn-secondary" onclick="setTool('draw')" id="toolDraw">Draw</button>
+                <div class="option-group" style="margin:0;">
+                    <label style="font-size:0.85rem;">Text Size</label>
+                    <input type="range" id="textSize" min="8" max="36" value="14" style="width:100px;">
+                </div>
+                <div class="option-group" style="margin:0;">
+                    <label style="font-size:0.85rem;">Color</label>
+                    <input type="color" id="textColor" value="#000000" style="width:40px;height:32px;border:none;cursor:pointer;">
+                </div>
+                <div class="option-group" style="margin:0;">
+                    <label style="font-size:0.85rem;">Highlight Color</label>
+                    <input type="color" id="highlightColor" value="#ffff00" style="width:40px;height:32px;border:none;cursor:pointer;">
+                </div>
+            </div>
+
+            <div class="editor-canvas-container" style="background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius);padding:20px;overflow:auto;max-height:80vh;">
+                <canvas id="pdfCanvas" style="max-width:100%;cursor:crosshair;box-shadow:var(--shadow-lg);"></canvas>
+            </div>
+
+            <div style="display:flex;gap:12px;margin-top:24px;justify-content:center;">
+                <button class="btn btn-primary" onclick="savePDF()">Save PDF</button>
+                <button class="btn btn-secondary" onclick="clearEditor()">New PDF</button>
+            </div>
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display:none;">
+            <div class="progress" id="progress" style="width:0%"></div>
+        </div>
+
+        <div class="result-area" id="resultArea" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>PDF Edited!</h3>
+            <p id="resultText"></p>
+            <div class="result-buttons">
+                <button class="btn btn-primary" onclick="downloadResult()">⬇ Download Edited PDF</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="../js/tool-common.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        let currentFile = null;
+        let resultBlob = null;
+        let pdfDoc = null;
+        let currentTool = 'select';
+        let isDrawing = false;
+        let annotations = [];
+        
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const editorContainer = document.getElementById('editorContainer');
+        const canvas = document.getElementById('pdfCanvas');
+        const ctx = canvas.getContext('2d');
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                loadPDF(e.target.files[0]);
+            }
+        });
+        setupDragDrop(uploadZone, (fl) => {
+            if (fl.length > 0) {
+                loadPDF(fl[0]);
+            }
+        });
+
+        async function loadPDF(file) {
+            currentFile = file;
+            fileList.innerHTML = `<div class="file-item"><span class="file-name">${file.name}</span><span class="file-size">${formatBytes(file.size)}</span><span class="file-remove" onclick="clearEditor()">×</span></div>`;
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                
+                // Render first page
+                const page = await pdfDoc.getPage(1);
+                const viewport = page.getViewport({ scale: 1.5 });
+                
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                
+                await page.render({
+                    canvasContext: ctx,
+                    viewport: viewport
+                }).promise;
+                
+                editorContainer.style.display = 'block';
+                uploadZone.style.display = 'none';
+            } catch (err) {
+                console.error('Failed to load PDF:', err);
+                alert('Failed to load PDF. Please try a different file.');
+            }
+        }
+
+        function setTool(tool) {
+            currentTool = tool;
+            document.querySelectorAll('.editor-toolbar .btn').forEach(btn => {
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-secondary');
+            });
+            document.getElementById(`tool${tool.charAt(0).toUpperCase() + tool.slice(1)}`).classList.remove('btn-secondary');
+            document.getElementById(`tool${tool.charAt(0).toUpperCase() + tool.slice(1)}`).classList.add('btn-primary');
+            
+            canvas.style.cursor = tool === 'text' ? 'text' : tool === 'draw' ? 'crosshair' : 'default';
+        }
+
+        // Canvas event handlers
+        canvas.addEventListener('mousedown', (e) => {
+            if (currentTool === 'text') {
+                addText(e);
+            } else if (currentTool === 'draw' || currentTool === 'highlight') {
+                isDrawing = true;
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                startDrawing(x, y);
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDrawing && (currentTool === 'draw' || currentTool === 'highlight')) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+                const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+                draw(x, y);
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDrawing = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDrawing = false;
+        });
+
+        function addText(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            const text = prompt('Enter text:');
+            if (text) {
+                const fontSize = document.getElementById('textSize').value;
+                const color = document.getElementById('textColor').value;
+                
+                ctx.font = `${fontSize}px Arial`;
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+                
+                annotations.push({
+                    type: 'text',
+                    text,
+                    x,
+                    y,
+                    fontSize: parseInt(fontSize),
+                    color
+                });
+            }
+        }
+
+        function startDrawing(x, y) {
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(x, y) {
+            ctx.lineTo(x, y);
+            ctx.strokeStyle = currentTool === 'highlight' ? 
+                document.getElementById('highlightColor').value : 
+                document.getElementById('textColor').value;
+            ctx.lineWidth = currentTool === 'highlight' ? 10 : 2;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+        }
+
+        async function savePDF() {
+            if (!currentFile) return;
+
+            const progressBar = document.getElementById('progressBar');
+            const progress = document.getElementById('progress');
+            const resultArea = document.getElementById('resultArea');
+
+            progressBar.style.display = 'block';
+            resultArea.style.display = 'none';
+            progress.style.width = '30%';
+
+            try {
+                // Load original PDF with pdf-lib
+                const { PDFDocument } = PDFLib;
+                const arrayBuffer = await currentFile.arrayBuffer();
+                const pdfDoc = await PDFDocument.load(arrayBuffer);
+                
+                // Get the first page
+                const pages = pdfDoc.getPages();
+                const firstPage = pages[0];
+                const { width, height } = firstPage.getSize();
+                
+                // Draw annotations on the PDF
+                // Note: This is a simplified version. In production, you'd use pdf-lib's drawing APIs
+                // For now, we'll save the canvas as an image and embed it
+                
+                progress.style.width = '60%';
+                
+                // Convert canvas to image and embed in PDF
+                const canvasImage = await pdfDoc.embedPng(
+                    Uint8Array.from(atob(canvas.toDataURL('image/png').split(',')[1]), c => c.charCodeAt(0))
+                );
+                
+                // Draw the canvas image on the page
+                firstPage.drawImage(canvasImage, {
+                    x: 0,
+                    y: 0,
+                    width,
+                    height
+                });
+                
+                // Save the modified PDF
+                const pdfBytes = await pdfDoc.save();
+                resultBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+                
+                progress.style.width = '100%';
+                progressBar.style.display = 'none';
+                resultArea.style.display = 'block';
+                document.getElementById('resultText').textContent = `PDF edited and saved (${formatBytes(resultBlob.size)})`;
+            } catch (err) {
+                console.error('Save failed:', err);
+                alert('Failed to save PDF. Please try again.');
+                progressBar.style.display = 'none';
+            }
+        }
+
+        function downloadResult() {
+            if (resultBlob) {
+                const baseName = getFileNameWithoutExt(currentFile.name);
+                downloadBlob(resultBlob, `${baseName}_edited.pdf`);
+            }
+        }
+
+        function clearEditor() {
+            currentFile = null;
+            pdfDoc = null;
+            annotations = [];
+            fileList.innerHTML = '';
+            editorContainer.style.display = 'none';
+            uploadZone.style.display = 'block';
+            document.getElementById('resultArea').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

@@ -1,40 +1,82 @@
-const CACHE_NAME = 'devutils-v1';
-const ASSETS = [
+// Service Worker for offline support
+const CACHE_NAME = 'filetools-v1';
+const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/css/style.css',
-    '/tools/json-formatter.html',
-    '/tools/base64-converter.html',
-    '/tools/uuid-generator.html',
-    '/tools/regex-tester.html',
-    '/tools/hash-generator.html',
-    '/tools/color-converter.html',
-    '/tools/lorem-ipsum-generator.html',
-    '/tools/markdown-preview.html',
-    '/tools/password-generator.html',
-    '/tools/url-encoder.html',
-    '/tools/timestamp-converter.html',
+    '/js/main.js',
+    '/js/tool-common.js',
+    '/js/ads.js',
+    '/js/analytics.js',
+    '/tools/image-converter.html',
+    '/tools/image-compressor.html',
+    '/tools/image-resizer.html',
+    '/tools/image-cropper.html',
+    '/tools/bulk-image-converter.html',
+    '/tools/image-to-pdf.html',
+    '/tools/pdf-compressor.html',
+    '/tools/pdf-merge.html',
+    '/tools/pdf-split.html',
+    '/tools/pdf-to-word.html',
+    '/tools/pdf-to-image.html',
+    '/tools/word-to-pdf.html',
+    '/tools/html-to-pdf.html',
+    '/tools/csv-to-json.html',
+    '/tools/json-to-csv.html',
+    '/tools/qr-code-generator.html',
+    '/tools/universal-converter.html'
 ];
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
+// Install event - cache static assets
+self.addEventListener('install', (event) => {
+    event.waitUntil(
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(STATIC_ASSETS))
+            .catch((err) => console.log('Cache install failed:', err))
+    );
+    self.skipWaiting();
 });
 
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        caches.match(e.request).then((response) => {
-            return response || fetch(e.request).then((fetchResponse) => {
-                return caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(e.request, fetchResponse.clone());
-                    return fetchResponse;
-                });
-            });
+// Activate event - clean old caches
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames
+                    .filter((name) => name !== CACHE_NAME)
+                    .map((name) => caches.delete(name))
+            );
         })
     );
+    self.clients.claim();
 });
 
-self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))))
+// Fetch event - serve from cache, fall back to network
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Return cached response or fetch from network
+                if (response) {
+                    return response;
+                }
+                
+                return fetch(event.request)
+                    .then((networkResponse) => {
+                        // Cache new resources
+                        if (networkResponse.ok && event.request.url.startsWith(self.location.origin)) {
+                            const responseToCache = networkResponse.clone();
+                            caches.open(CACHE_NAME)
+                                .then((cache) => cache.put(event.request, responseToCache));
+                        }
+                        return networkResponse;
+                    })
+                    .catch(() => {
+                        // Return offline page if everything fails
+                        if (event.request.destination === 'document') {
+                            return caches.match('/index.html');
+                        }
+                    });
+            })
     );
 });
