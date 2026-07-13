@@ -1,6 +1,6 @@
 {
-  "name": "FileTools - Free Online File Converter & Editor",
-  "short_name": "FileTools",
+  "name": "Easy File Tools - Free Online File Converter & Editor",
+  "short_name": "EasyFileTools",
   "description": "Convert, compress, edit files online for free. PDF tools, image converter, document editor.",
   "start_url": "/",
   "display": "standalone",
