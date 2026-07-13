@@ -415,18 +415,40 @@
             currentFile = file;
             
             try {
+                console.log('Loading PDF:', file.name, file.size);
+                
+                if (!file.type || file.type !== 'application/pdf') {
+                    throw new Error('File is not a valid PDF');
+                }
+                
                 const arrayBuffer = await file.arrayBuffer();
+                console.log('Array buffer loaded:', arrayBuffer.byteLength);
+                
+                if (!pdfjsLib) {
+                    throw new Error('pdf.js library not loaded');
+                }
+                if (!PDFLib) {
+                    throw new Error('pdf-lib not loaded');
+                }
+                
                 pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                console.log('PDF loaded with pdf.js, pages:', pdfDoc.numPages);
+                
                 pdfLibDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                console.log('PDF loaded with pdf-lib');
                 
                 await renderAllPages();
+                console.log('Pages rendered');
+                
                 await renderThumbnails();
+                console.log('Thumbnails rendered');
                 
                 editorContainer.style.display = 'block';
                 uploadZone.style.display = 'none';
             } catch (err) {
                 console.error('Failed to load PDF:', err);
-                alert('Failed to load PDF. Please try a different file.');
+                console.error('Error details:', err.message, err.stack);
+                alert('Error: ' + err.message + '\n\nDetails: ' + (err.stack || ''));
             }
         }
 
