@@ -1,30 +1,21 @@
 // Tool database for search
 const TOOLS = [
+    { name: 'PDF to Word', slug: 'pdf-to-word', cat: 'PDF', icon: 'pdf' },
     { name: 'PDF Compressor', slug: 'pdf-compressor', cat: 'PDF', icon: 'pdf' },
     { name: 'PDF Merge', slug: 'pdf-merge', cat: 'PDF', icon: 'pdf' },
     { name: 'PDF Split', slug: 'pdf-split', cat: 'PDF', icon: 'pdf' },
-    { name: 'PDF to Word', slug: 'pdf-to-word', cat: 'PDF', icon: 'pdf' },
     { name: 'PDF to Image', slug: 'pdf-to-image', cat: 'PDF', icon: 'pdf' },
     { name: 'PDF Editor', slug: 'pdf-editor', cat: 'PDF', icon: 'pdf' },
-    { name: 'Image Converter', slug: 'image-converter', cat: 'Image', icon: 'image' },
     { name: 'Image Compressor', slug: 'image-compressor', cat: 'Image', icon: 'image' },
     { name: 'Image Resizer', slug: 'image-resizer', cat: 'Image', icon: 'image' },
-    { name: 'Image Cropper', slug: 'image-cropper', cat: 'Image', icon: 'image' },
-    { name: 'Bulk Image Converter', slug: 'bulk-image-converter', cat: 'Image', icon: 'image' },
     { name: 'Image to PDF', slug: 'image-to-pdf', cat: 'Image', icon: 'image' },
-    { name: 'Word to PDF', slug: 'word-to-pdf', cat: 'Document', icon: 'doc' },
-    { name: 'HTML to PDF', slug: 'html-to-pdf', cat: 'Document', icon: 'doc' },
-    { name: 'CSV to JSON', slug: 'csv-to-json', cat: 'Document', icon: 'doc' },
-    { name: 'JSON to CSV', slug: 'json-to-csv', cat: 'Document', icon: 'doc' },
-    { name: 'QR Code Generator', slug: 'qr-code-generator', cat: 'Other', icon: 'universal' },
-    { name: 'Universal Converter', slug: 'universal-converter', cat: 'Other', icon: 'universal' },
+    { name: 'QR Code Generator', slug: 'qr-code-generator', cat: 'Utility', icon: 'universal' },
 ];
 
 // Icon SVGs for dropdown
 const ICONS = {
     pdf: '<svg viewBox="0 0 24 24" fill="none"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m3.75 9v6m3-3H9m1.5-12H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" stroke="currentColor" stroke-width="2"/></svg>',
     image: '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><path d="M21 15l-5-5L5 21" stroke="currentColor" stroke-width="2"/></svg>',
-    doc: '<svg viewBox="0 0 24 24" fill="none"><path d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.973c.621 0 1.14-.52 1.14-1.14v-1.835a7.47 7.47 0 01-1.44-3.66M15.75 3h-7.5" stroke="currentColor" stroke-width="2"/></svg>',
     universal: '<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/><path d="M14 14h3v3h-3zm4 4h3v3h-3zm0-4h3v3h-3z" stroke="currentColor" stroke-width="2"/></svg>',
 };
 

@@ -49,13 +49,13 @@
   "categories": ["productivity", "utilities"],
   "screenshots": [],
   "share_target": {
-    "action": "/tools/universal-converter.html",
+    "action": "/",
     "method": "GET",
     "params": {
       "files": [
         {
           "name": "file",
-          "accept": ["image/*", "application/pdf", ".doc", ".docx", ".csv", ".json"]
+          "accept": ["image/*", "application/pdf"]
         }
       ]
     }
