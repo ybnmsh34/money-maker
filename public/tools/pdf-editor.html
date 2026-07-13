@@ -3,810 +3,911 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Editor - Edit PDF Files Online | Easy File Tools</title>
-    <meta name="description" content="Edit PDF files online like Adobe Pro. Modify text, images, formatting, pages. Free, fast, private.">
-    <link rel="stylesheet" href="../css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>PDF Editor - Easy File Tools</title>
+    <link rel="manifest" href="../manifest.json">
+    <link rel="icon" type="image/png" href="../images/icon-192.png">
     <style>
-        .editor-layout {
-            display: grid;
-            grid-template-columns: 280px 1fr 300px;
-            grid-template-rows: 60px 1fr;
-            height: calc(100vh - 80px);
-            gap: 1px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            overflow: hidden;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg-primary);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            min-height: 100vh;
         }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header a {
+            color: var(--neon-blue);
+            text-decoration: none;
+            margin: 0 15px;
+        }
+
+        .header a:hover { color: var(--neon-purple); }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 3px dashed rgba(0, 212, 255, 0.3);
+            border-radius: 15px;
+            padding: 60px;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 40px auto;
+            max-width: 600px;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--neon-blue);
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--neon-cyan);
+            background: rgba(6, 255, 210, 0.1);
+        }
+
+        .upload-icon { font-size: 4em; margin-bottom: 20px; }
+
+        .upload-zone h2 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .upload-zone p { color: #888; font-size: 1.1em; }
+        #fileInput { display: none; }
+
+        /* Editor */
+        .editor-container { display: none; }
+
         .toolbar {
-            grid-column: 1 / -1;
-            background: var(--bg-card);
-            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            flex-wrap: wrap;
+        }
+
+        .toolbar-group {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 0 16px;
-            overflow-x: auto;
+            padding: 0 15px;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
         }
-        .tool-group {
-            display: flex;
-            gap: 4px;
-            padding: 0 8px;
-            border-right: 1px solid var(--border-color);
-        }
-        .tool-btn {
-            background: transparent;
-            border: 1px solid transparent;
-            border-radius: var(--radius);
+
+        .toolbar-group:last-child { border-right: none; }
+
+        .toolbar label { font-size: 0.9em; color: #aaa; }
+
+        .toolbar select, .toolbar input[type="number"] {
+            background: #2a2a3e;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: #fff;
             padding: 8px 12px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: 500;
-            transition: all 0.2s;
+            border-radius: 6px;
+            font-size: 0.9em;
         }
-        .tool-btn:hover {
-            background: rgba(0, 212, 255, 0.1);
-            color: var(--neon-blue);
+
+        .toolbar select { cursor: pointer; }
+        .toolbar select:focus { outline: none; border-color: var(--neon-blue); }
+
+        .toolbar input[type="color"] {
+            width: 30px; height: 30px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 6px; cursor: pointer; background: none;
         }
-        .tool-btn.active {
-            background: rgba(0, 212, 255, 0.15);
-            border-color: var(--neon-blue);
-            color: var(--neon-blue);
+
+        .toolbar input[type="number"] {
+            width: 60px; text-align: center;
         }
-        .sidebar-left {
-            background: var(--bg-card);
-            border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
+
+        .toolbar button {
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            border: none; color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px; cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .toolbar button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        }
+
+        .toolbar button.secondary {
+            background: #2a2a3e;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+        }
+
+        .toolbar button.secondary:hover { background: #3a3a5e; }
+
+        /* Viewer */
+        .viewer {
+            background: #1a1a2e;
+            border-radius: 10px;
+            padding: 20px;
+            overflow: auto;
+            max-height: 80vh;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .page-wrapper {
+            position: relative;
+            margin: 0 auto 30px;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
             overflow: hidden;
         }
-        .sidebar-right {
-            background: var(--bg-card);
-            border-left: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-        .canvas-area {
-            background: var(--bg-primary);
-            overflow: auto;
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-        }
-        .pdf-page {
-            background: white;
-            box-shadow: var(--shadow-lg);
-            margin-bottom: 20px;
-            position: relative;
-            cursor: text;
-        }
+
+        .page-canvas { display: block; width: 100%; }
+
         .text-layer {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             pointer-events: none;
-            user-select: none;
         }
-        .text-layer span {
+
+        .text-item {
             position: absolute;
             white-space: pre;
             cursor: text;
             pointer-events: auto;
+            outline: none;
             border: 1px solid transparent;
+            background: transparent;
+            color: #000;
             padding: 0;
             margin: 0;
             line-height: 1;
-            color: #000000;
-            background: transparent;
-            outline: none;
+            font-family: 'Helvetica', Arial, sans-serif;
             user-select: text;
+            transition: border-color 0.2s, background 0.2s;
         }
-        .text-layer span:hover {
-            border-color: rgba(0, 212, 255, 0.3);
-            background: rgba(0, 212, 255, 0.05);
+
+        .text-item:hover {
+            border: 1px solid rgba(0, 212, 255, 0.4);
+            background: rgba(255, 255, 255, 0.7);
         }
-        .text-layer span:focus {
-            border-color: var(--neon-blue);
-            background: rgba(255, 255, 255, 0.9);
-        }
-        .page-thumbnails {
-            flex: 1;
-            overflow-y: auto;
-            padding: 12px;
-        }
-        .page-thumb {
-            background: white;
-            border: 2px solid transparent;
-            border-radius: var(--radius);
-            margin-bottom: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            position: relative;
-        }
-        .page-thumb:hover {
-            border-color: rgba(0, 212, 255, 0.5);
-        }
-        .page-thumb.active {
-            border-color: var(--neon-blue);
-        }
-        .page-thumb .page-number {
-            position: absolute;
-            bottom: 4px;
-            right: 4px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            font-size: 0.7rem;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        .properties-panel {
-            padding: 16px;
-        }
-        .property-group {
-            margin-bottom: 16px;
-        }
-        .property-label {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            margin-bottom: 4px;
-            font-weight: 500;
-        }
-        .property-input {
-            width: 100%;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            padding: 8px;
-            color: var(--text-primary);
-            font-size: 0.85rem;
-        }
-        .property-input:focus {
-            outline: none;
-            border-color: var(--neon-blue);
-            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
-        }
-        .color-picker {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-        }
-        .color-swatch {
-            width: 24px;
-            height: 24px;
-            border-radius: 4px;
-            border: 2px solid transparent;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .color-swatch:hover {
-            border-color: var(--neon-blue);
-        }
-        .color-swatch.active {
-            border-color: var(--neon-blue);
-            box-shadow: 0 0 0 2px var(--neon-blue);
-        }
-        .zoom-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-left: auto;
-        }
-        .zoom-btn {
-            background: transparent;
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius);
-            width: 28px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--text-secondary);
-            cursor: pointer;
-        }
-        .zoom-btn:hover {
-            background: rgba(0, 212, 255, 0.1);
-            color: var(--neon-blue);
-        }
-        .text-editor-overlay {
-            position: absolute;
-            background: transparent;
+
+        .text-item:focus {
             border: 2px solid var(--neon-blue);
-            padding: 0;
-            margin: 0;
-            outline: none;
-            font-family: inherit;
-            font-size: inherit;
-            color: inherit;
-            line-height: inherit;
-            resize: none;
-            overflow: hidden;
+            background: #ffffff;
             z-index: 100;
         }
-        @media (max-width: 1024px) {
-            .editor-layout {
-                grid-template-columns: 1fr;
-                grid-template-rows: 60px auto 1fr;
+
+        .text-item.editing {
+            border: 2px solid var(--neon-cyan);
+            background: #ffffff;
+            z-index: 100;
+        }
+
+        /* Progress */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #2a2a3e;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            transition: width 0.3s ease;
+        }
+
+        /* Result */
+        .result-area {
+            display: none;
+            background: rgba(6, 255, 210, 0.1);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .result-area a {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .result-area a:hover { color: var(--neon-blue); }
+
+        /* Zoom */
+        .zoom-controls {
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .zoom-controls button {
+            width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0;
+        }
+
+        .page-indicator { color: #aaa; font-size: 0.9em; }
+
+        /* Page thumbnails */
+        .pages-panel {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .page-thumb {
+            width: 80px;
+            height: 100px;
+            background: #fff;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .page-thumb:hover { border-color: rgba(0, 212, 255, 0.5); }
+        .page-thumb.active { border-color: var(--neon-blue); }
+        .page-thumb img { width: 100%; height: 100%; object-fit: contain; }
+
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 10px; }
+            .toolbar { flex-direction: column; align-items: stretch; }
+            .toolbar-group {
+                border-right: none;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                padding-bottom: 10px;
             }
-            .sidebar-left, .sidebar-right {
-                display: none;
-            }
+            .container { padding: 10px; }
+            .viewer { padding: 10px; }
         }
     </style>
 </head>
 <body>
-    <div class="scanline"></div>
-    <nav class="navbar">
-        <div class="container nav-content">
-            <a href="../index.html" class="logo">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
-                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span>Easy File Tools</span>
-            </a>
-            <div class="nav-links">
-                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
-                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
-                <a href="../index.html#file-converter" class="nav-link">Utilities</a>
-            </div>
+    <div class="header">
+        <div>
+            <a href="../index.html">Home</a>
+            <a href="javascript:history.back()">Back</a>
         </div>
-    </nav>
+        <h1>PDF Editor</h1>
+        <div></div>
+    </div>
 
-    <main class="container tool-page">
-        <div class="tool-header">
-            <a href="../index.html" class="back-link">← Back to all tools</a>
-            <h1>PDF Editor</h1>
-            <p>Edit PDF content directly. Modify text, formatting, pages. Like Adobe Pro.</p>
-        </div>
-
+    <div class="container">
         <div class="upload-zone" id="uploadZone">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/></svg>
-            <h3>Drop PDF file here or click to select</h3>
-            <p>PDF files only</p>
-            <input type="file" id="fileInput" accept="application/pdf" hidden>
+            <div class="upload-icon">📄</div>
+            <h2>Upload PDF to Edit</h2>
+            <p>Click or drag & drop your PDF file here</p>
+            <input type="file" id="fileInput" accept=".pdf">
         </div>
 
-        <div id="editorContainer" style="display:none;">
-            <div class="editor-layout">
-                <!-- Toolbar -->
-                <div class="toolbar">
-                    <div class="tool-group">
-                        <button class="tool-btn active" onclick="setTool('select')" id="toolSelect">Select</button>
-                        <button class="tool-btn" onclick="setTool('edit')" id="toolEdit">Edit Text</button>
-                        <button class="tool-btn" onclick="setTool('add')" id="toolAdd">Add Text</button>
-                        <button class="tool-btn" onclick="setTool('highlight')" id="toolHighlight">Highlight</button>
-                        <button class="tool-btn" onclick="setTool('erase')" id="toolErase">Erase</button>
-                    </div>
-                    <div class="tool-group">
-                        <button class="tool-btn" onclick="addPage()">+ Page</button>
-                        <button class="tool-btn" onclick="deletePage()">- Page</button>
-                        <button class="tool-btn" onclick="rotatePage()">↻ Rotate</button>
-                    </div>
-                    <div class="tool-group">
-                        <button class="tool-btn" onclick="undoAction()">↩ Undo</button>
-                        <button class="tool-btn" onclick="redoAction()">↪ Redo</button>
-                    </div>
-                    <div class="tool-group">
-                        <button class="tool-btn" onclick="exportPDF()">💾 Save PDF</button>
-                    </div>
+        <div class="editor-container" id="editorContainer">
+            <div class="toolbar">
+                <div class="toolbar-group">
+                    <label>Font:</label>
+                    <select id="fontFamily">
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Times-Roman">Times Roman</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier">Courier</option>
+                        <option value="Courier New">Courier New</option>
+                    </select>
+                </div>
+
+                <div class="toolbar-group">
+                    <label>Size:</label>
+                    <input type="number" id="fontSizeInput" value="12" min="6" max="72">
+                </div>
+
+                <div class="toolbar-group">
+                    <label>Color:</label>
+                    <input type="color" id="fontColor" value="#000000">
+                </div>
+
+                <div class="toolbar-group">
+                    <label>Zoom:</label>
                     <div class="zoom-controls">
-                        <button class="zoom-btn" onclick="zoomOut()">−</button>
-                        <span id="zoomLevel" style="font-size:0.8rem;min-width:50px;text-align:center;">100%</span>
-                        <button class="zoom-btn" onclick="zoomIn()">+</button>
+                        <button onclick="changeZoom(-0.1)">−</button>
+                        <span id="zoomLevel" class="page-indicator">100%</span>
+                        <button onclick="changeZoom(0.1)">+</button>
                     </div>
                 </div>
 
-                <!-- Left Sidebar: Pages -->
-                <div class="sidebar-left">
-                    <div style="padding:12px;border-bottom:1px solid var(--border-color);font-weight:600;font-size:0.85rem;">Pages</div>
-                    <div class="page-thumbnails" id="pageThumbnails"></div>
+                <div class="toolbar-group">
+                    <span id="changeCount" class="page-indicator">0 changes</span>
                 </div>
 
-                <!-- Main Canvas Area -->
-                <div class="canvas-area" id="canvasArea"></div>
-
-                <!-- Right Sidebar: Properties -->
-                <div class="sidebar-right">
-                    <div style="padding:12px;border-bottom:1px solid var(--border-color);font-weight:600;font-size:0.85rem;">Properties</div>
-                    <div class="properties-panel" id="propertiesPanel">
-                        <div class="property-group">
-                            <div class="property-label">Font Family</div>
-                            <select class="property-input" id="fontFamily">
-                                <option value="Arial">Arial</option>
-                                <option value="Times New Roman">Times New Roman</option>
-                                <option value="Helvetica">Helvetica</option>
-                                <option value="Courier">Courier</option>
-                                <option value="Verdana">Verdana</option>
-                                <option value="Georgia">Georgia</option>
-                            </select>
-                        </div>
-                        <div class="property-group">
-                            <div class="property-label">Font Size</div>
-                            <input type="number" class="property-input" id="fontSize" value="12" min="6" max="72">
-                        </div>
-                        <div class="property-group">
-                            <div class="property-label">Font Style</div>
-                            <div style="display:flex;gap:4px;">
-                                <button class="tool-btn" id="boldBtn" onclick="toggleBold()" style="font-weight:bold;">B</button>
-                                <button class="tool-btn" id="italicBtn" onclick="toggleItalic()" style="font-style:italic;">I</button>
-                                <button class="tool-btn" id="underlineBtn" onclick="toggleUnderline()" style="text-decoration:underline;">U</button>
-                            </div>
-                        </div>
-                        <div class="property-group">
-                            <div class="property-label">Text Color</div>
-                            <div class="color-picker" id="textColors">
-                                <div class="color-swatch active" style="background:#000000" onclick="setColor(this, '#000000')"></div>
-                                <div class="color-swatch" style="background:#ffffff" onclick="setColor(this, '#ffffff')"></div>
-                                <div class="color-swatch" style="background:#ff0000" onclick="setColor(this, '#ff0000')"></div>
-                                <div class="color-swatch" style="background:#00ff00" onclick="setColor(this, '#00ff00')"></div>
-                                <div class="color-swatch" style="background:#0000ff" onclick="setColor(this, '#0000ff')"></div>
-                                <div class="color-swatch" style="background:#ffff00" onclick="setColor(this, '#ffff00')"></div>
-                                <div class="color-swatch" style="background:#ff00ff" onclick="setColor(this, '#ff00ff')"></div>
-                                <div class="color-swatch" style="background:#00ffff" onclick="setColor(this, '#00ffff')"></div>
-                            </div>
-                        </div>
-                        <div class="property-group">
-                            <div class="property-label">Alignment</div>
-                            <div style="display:flex;gap:4px;">
-                                <button class="tool-btn" id="alignLeft" onclick="setAlignment('left')">Left</button>
-                                <button class="tool-btn" id="alignCenter" onclick="setAlignment('center')">Center</button>
-                                <button class="tool-btn" id="alignRight" onclick="setAlignment('right')">Right</button>
-                            </div>
-                        </div>
-                    </div>
+                <div class="toolbar-group">
+                    <button onclick="exportPDF()">Save PDF</button>
+                    <button class="secondary" onclick="resetEditor()">New File</button>
                 </div>
             </div>
-        </div>
 
-        <div class="progress-bar" id="progressBar" style="display:none;margin-top:24px;">
-            <div class="progress" id="progress" style="width:0%"></div>
-        </div>
+            <div class="progress-bar" id="progressBar">
+                <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+            </div>
 
-        <div class="result-area" id="resultArea" style="display:none;margin-top:24px;">
-            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <h3>PDF Edited!</h3>
-            <p id="resultText"></p>
-            <div class="result-buttons">
-                <button class="btn btn-primary" onclick="downloadResult()">⬇ Download Edited PDF</button>
+            <div class="pages-panel" id="pagesPanel"></div>
+
+            <div class="viewer" id="viewer"></div>
+
+            <div class="result-area" id="resultArea">
+                <p>PDF edited successfully!</p>
+                <a id="downloadLink" href="#" download="edited.pdf">Download Edited PDF</a>
             </div>
         </div>
-    </main>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script src="../js/tool-common.js"></script>
     <script>
-        // Use unpkg CDN for better compatibility
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-        
-        let currentFile = null;
-        let resultBlob = null;
-        let pdfDoc = null;
-        let pdfLibDoc = null;
-        let currentPage = 1;
-        let currentTool = 'select';
-        let zoom = 1.0;
-        let selectedText = null;
-        let textItems = [];
-        let undoStack = [];
-        let redoStack = [];
-        let isEditing = false;
+        // Set pdf.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+        // State
+        let pdfDoc = null;         // pdf.js document
+        let pdfLibDoc = null;      // pdf-lib document (for export)
+        let currentFile = null;    // File object
+        let zoom = 1;              // Current zoom level
+        let allTextLines = [];     // All text line objects across all pages
+        let changes = 0;           // Number of edits made
+
+        // DOM elements
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
         const editorContainer = document.getElementById('editorContainer');
-        const canvasArea = document.getElementById('canvasArea');
-        const pageThumbnails = document.getElementById('pageThumbnails');
+        const viewer = document.getElementById('viewer');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const resultArea = document.getElementById('resultArea');
+        const downloadLink = document.getElementById('downloadLink');
+        const zoomLevelEl = document.getElementById('zoomLevel');
+        const fontFamilySelect = document.getElementById('fontFamily');
+        const fontSizeInput = document.getElementById('fontSizeInput');
+        const fontColorInput = document.getElementById('fontColor');
+        const pagesPanel = document.getElementById('pagesPanel');
+        const changeCountEl = document.getElementById('changeCount');
 
+        let currentEditingElement = null;
+
+        // Upload events
         uploadZone.addEventListener('click', () => fileInput.click());
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                loadPDF(e.target.files[0]);
-            }
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
         });
-        setupDragDrop(uploadZone, (fl) => {
-            if (fl.length > 0) {
-                loadPDF(fl[0]);
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+                loadPDF(file);
+            } else {
+                alert('Please upload a valid PDF file');
             }
         });
 
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) loadPDF(file);
+        });
+
+        // Apply toolbar changes to current element
+        fontFamilySelect.addEventListener('change', () => {
+            if (currentEditingElement) {
+                currentEditingElement.style.fontFamily = fontFamilySelect.value;
+            }
+        });
+
+        fontSizeInput.addEventListener('change', () => {
+            if (currentEditingElement) {
+                const size = parseInt(fontSizeInput.value) * zoom;
+                currentEditingElement.style.fontSize = size + 'px';
+            }
+        });
+
+        fontColorInput.addEventListener('change', () => {
+            if (currentEditingElement) {
+                currentEditingElement.style.color = fontColorInput.value;
+            }
+        });
+
+        // =====================================================
+        // LOAD PDF
+        // =====================================================
         async function loadPDF(file) {
             currentFile = file;
-            
+            progressBar.style.display = 'block';
+            progressFill.style.width = '20%';
+            changes = 0;
+            updateChangeCount();
+
             try {
-                console.log('Loading PDF:', file.name, file.size);
-                
-                if (!file.type || file.type !== 'application/pdf') {
-                    throw new Error('File is not a valid PDF');
-                }
-                
-                // Read file once as Uint8Array to avoid detached ArrayBuffer issue
+                // Read file once
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                console.log('Array buffer loaded:', uint8Array.length);
-                
-                if (!pdfjsLib) {
-                    throw new Error('pdf.js library not loaded');
-                }
-                if (!PDFLib) {
-                    throw new Error('pdf-lib not loaded');
-                }
-                
-                // Use separate copies for each library
+
+                // Load with pdf.js for rendering
                 pdfDoc = await pdfjsLib.getDocument({ data: uint8Array.slice() }).promise;
-                console.log('PDF loaded with pdf.js, pages:', pdfDoc.numPages);
-                
+
+                // Load with pdf-lib for export
                 pdfLibDoc = await PDFLib.PDFDocument.load(uint8Array.slice());
-                console.log('PDF loaded with pdf-lib');
-                
+
+                progressFill.style.width = '50%';
+
+                // Render all pages
                 await renderAllPages();
-                console.log('Pages rendered');
-                
-                await renderThumbnails();
-                console.log('Thumbnails rendered');
-                
-                editorContainer.style.display = 'block';
+
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                }, 300);
+
                 uploadZone.style.display = 'none';
+                editorContainer.style.display = 'block';
+
             } catch (err) {
                 console.error('Failed to load PDF:', err);
-                console.error('Error details:', err.message, err.stack);
-                alert('Error: ' + err.message + '\n\nDetails: ' + (err.stack || ''));
+                alert('Failed to load PDF: ' + err.message);
+                progressBar.style.display = 'none';
             }
         }
 
+        // =====================================================
+        // RENDER ALL PAGES
+        // =====================================================
         async function renderAllPages() {
-            canvasArea.innerHTML = '';
-            
+            viewer.innerHTML = '';
+            pagesPanel.innerHTML = '';
+            allTextLines = [];
+
             for (let i = 1; i <= pdfDoc.numPages; i++) {
-                const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: zoom });
-                
-                const pageContainer = document.createElement('div');
-                pageContainer.className = 'pdf-page';
-                pageContainer.id = `page-${i}`;
-                pageContainer.style.width = viewport.width + 'px';
-                pageContainer.style.height = viewport.height + 'px';
-                pageContainer.style.position = 'relative';
-                
-                // Render page WITHOUT text (images/backgrounds only)
-                const canvas = document.createElement('canvas');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                canvas.style.position = 'absolute';
-                canvas.style.top = '0';
-                canvas.style.left = '0';
-                canvas.style.pointerEvents = 'none';
-                
-                await page.render({
-                    canvasContext: canvas.getContext('2d'),
-                    viewport: viewport,
-                    renderTextAsImages: true
-                }).promise;
-                
-                pageContainer.appendChild(canvas);
-                
-                // Create editable text layer - this IS the text
-                const textLayer = document.createElement('div');
-                textLayer.className = 'text-layer';
-                textLayer.id = `text-layer-${i}`;
-                textLayer.style.position = 'absolute';
-                textLayer.style.top = '0';
-                textLayer.style.left = '0';
-                textLayer.style.width = viewport.width + 'px';
-                textLayer.style.height = viewport.height + 'px';
-                textLayer.style.pointerEvents = 'none';
-                
-                const textContent = await page.getTextContent();
-                
-                for (const item of textContent.items) {
-                    const span = document.createElement('span');
-                    span.textContent = item.str;
-                    span.dataset.page = i;
-                    span.dataset.index = textContent.items.indexOf(item);
-                    span.dataset.original = item.str;
-                    span.contentEditable = 'true';
-                    
-                    const tx = item.transform;
-                    const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
-                    const x = tx[4];
-                    const y = viewport.height - tx[5];
-                    
-                    span.style.position = 'absolute';
-                    span.style.left = (x * zoom) + 'px';
-                    span.style.top = ((y - fontSize) * zoom) + 'px';
-                    span.style.fontSize = (fontSize * zoom) + 'px';
-                    span.style.fontFamily = item.fontName || 'Arial';
-                    span.style.color = '#000';
-                    span.style.background = 'transparent';
-                    span.style.border = '1px solid transparent';
-                    span.style.padding = '0';
-                    span.style.margin = '0';
-                    span.style.lineHeight = '1';
-                    span.style.outline = 'none';
-                    span.style.whiteSpace = 'pre';
-                    span.style.cursor = 'text';
-                    span.style.pointerEvents = 'auto';
-                    span.style.userSelect = 'text';
-                    
-                    span.addEventListener('focus', () => {
-                        span.style.border = '1px solid var(--neon-blue)';
-                        span.style.background = 'rgba(255, 255, 255, 0.9)';
-                        selectedText = span;
-                    });
-                    
-                    span.addEventListener('blur', () => {
-                        span.style.border = '1px solid transparent';
-                        span.style.background = 'transparent';
-                        saveState();
-                    });
-                    
-                    span.addEventListener('input', () => {
-                        saveState();
-                    });
-                    
-                    textLayer.appendChild(span);
-                }
-                
-                pageContainer.appendChild(textLayer);
-                canvasArea.appendChild(pageContainer);
-            }
-            
-            addTextListeners();
-        }
-
-        async function renderThumbnails() {
-            pageThumbnails.innerHTML = '';
-            
-            for (let i = 1; i <= pdfDoc.numPages; i++) {
-                const page = await pdfDoc.getPage(i);
-                const viewport = page.getViewport({ scale: 0.3 });
-                
-                const thumb = document.createElement('div');
-                thumb.className = 'page-thumb' + (i === currentPage ? ' active' : '');
-                thumb.onclick = () => goToPage(i);
-                
-                const canvas = document.createElement('canvas');
-                canvas.width = viewport.width;
-                canvas.height = viewport.height;
-                
-                await page.render({
-                    canvasContext: canvas.getContext('2d'),
-                    viewport: viewport
-                }).promise;
-                
-                thumb.appendChild(canvas);
-                
-                const pageNum = document.createElement('div');
-                pageNum.className = 'page-number';
-                pageNum.textContent = i;
-                thumb.appendChild(pageNum);
-                
-                pageThumbnails.appendChild(thumb);
+                progressFill.style.width = 20 + (i / pdfDoc.numPages * 30) + '%';
+                await renderPage(i);
             }
         }
 
-        function addTextListeners() {
-            // Text spans are already contentEditable
-            // Event listeners added during renderAllPages
-        }
+        async function renderPage(pageNum) {
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale: zoom });
 
-        function selectText(span) {
-            span.focus();
-            selectedText = span;
-            
-            document.getElementById('fontSize').value = parseInt(span.style.fontSize);
-            document.getElementById('fontFamily').value = span.style.fontFamily || 'Arial';
-        }
+            // Create page wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'page-wrapper';
+            wrapper.id = `page-wrapper-${pageNum}`;
+            wrapper.style.width = viewport.width + 'px';
+            wrapper.style.height = viewport.height + 'px';
 
-        function setTool(tool) {
-            currentTool = tool;
-            document.querySelectorAll('.tool-btn').forEach(btn => {
-                btn.classList.remove('active');
+            // Render page as canvas (includes text - we'll mask it)
+            const canvas = document.createElement('canvas');
+            canvas.className = 'page-canvas';
+            canvas.width = viewport.width;
+            canvas.height = viewport.height;
+
+            const ctx = canvas.getContext('2d');
+            await page.render({
+                canvasContext: ctx,
+                viewport: viewport
+            }).promise;
+
+            wrapper.appendChild(canvas);
+
+            // Get text content
+            const textContent = await page.getTextContent();
+
+            // Create text layer
+            const textLayer = document.createElement('div');
+            textLayer.className = 'text-layer';
+
+            // Group text items into lines
+            const lines = groupTextIntoLines(textContent.items, viewport);
+
+            // Create editable div for each line
+            lines.forEach(line => {
+                const div = createEditableLine(line, pageNum, viewport);
+                textLayer.appendChild(div);
             });
-            document.getElementById(`tool${tool.charAt(0).toUpperCase() + tool.slice(1)}`).classList.add('active');
-            
-            const pages = document.querySelectorAll('.pdf-page');
-            pages.forEach(page => {
-                page.style.cursor = tool === 'edit' ? 'text' : tool === 'select' ? 'default' : 'crosshair';
-            });
+
+            wrapper.appendChild(textLayer);
+            viewer.appendChild(wrapper);
+
+            // Create thumbnail
+            createThumbnail(pageNum, viewport);
         }
 
-        function zoomIn() {
-            zoom = Math.min(zoom + 0.1, 2.0);
-            document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
-            renderAllPages();
-        }
+        // =====================================================
+        // GROUP TEXT INTO LINES
+        // =====================================================
+        function groupTextIntoLines(items, viewport) {
+            const lines = [];
+            const lineThreshold = 3; // pixels - items within this Y range are same line
 
-        function zoomOut() {
-            zoom = Math.max(zoom - 0.1, 0.5);
-            document.getElementById('zoomLevel').textContent = Math.round(zoom * 100) + '%';
-            renderAllPages();
-        }
+            items.forEach(item => {
+                if (!item.str || item.str.trim() === '') return;
 
-        function goToPage(pageNum) {
-            currentPage = pageNum;
-            document.querySelectorAll('.page-thumb').forEach((thumb, i) => {
-                thumb.classList.toggle('active', i + 1 === pageNum);
-            });
-            document.getElementById(`page-${pageNum}`).scrollIntoView({ behavior: 'smooth' });
-        }
+                const tx = item.transform;
+                const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+                const x = tx[4];
+                const y = viewport.height - tx[5];
 
-        function toggleBold() {
-            if (selectedText) {
-                selectedText.style.fontWeight = selectedText.style.fontWeight === 'bold' ? 'normal' : 'bold';
-                document.getElementById('boldBtn').classList.toggle('active');
-                saveState();
-            }
-        }
-
-        function toggleItalic() {
-            if (selectedText) {
-                selectedText.style.fontStyle = selectedText.style.fontStyle === 'italic' ? 'normal' : 'italic';
-                document.getElementById('italicBtn').classList.toggle('active');
-                saveState();
-            }
-        }
-
-        function toggleUnderline() {
-            if (selectedText) {
-                selectedText.style.textDecoration = selectedText.style.textDecoration === 'underline' ? 'none' : 'underline';
-                document.getElementById('underlineBtn').classList.toggle('active');
-                saveState();
-            }
-        }
-
-        function setColor(swatch, color) {
-            document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-            swatch.classList.add('active');
-            
-            if (selectedText) {
-                selectedText.style.color = color;
-                saveState();
-            }
-        }
-
-        function setAlignment(align) {
-            if (selectedText) {
-                selectedText.style.textAlign = align;
-                saveState();
-            }
-        }
-
-        function addPage() {
-            const newPage = pdfLibDoc.addPage();
-            currentPage = pdfLibDoc.getPageCount();
-            renderAllPages();
-            renderThumbnails();
-            saveState();
-        }
-
-        function deletePage() {
-            if (pdfLibDoc.getPageCount() <= 1) return;
-            
-            const pageIndex = currentPage - 1;
-            pdfLibDoc.removePage(pageIndex);
-            currentPage = Math.min(currentPage, pdfLibDoc.getPageCount());
-            renderAllPages();
-            renderThumbnails();
-            saveState();
-        }
-
-        function rotatePage() {
-            const pageIndex = currentPage - 1;
-            const page = pdfLibDoc.getPage(pageIndex);
-            page.setRotation(page.getRotation().angle + 90);
-            renderAllPages();
-            saveState();
-        }
-
-        function saveState() {
-            const state = {
-                text: Array.from(document.querySelectorAll('.text-layer span')).map(span => ({
-                    page: span.dataset.page,
-                    index: span.dataset.index,
-                    text: span.textContent,
-                    style: span.getAttribute('style')
-                }))
-            };
-            undoStack.push(state);
-            if (undoStack.length > 10) undoStack.shift();
-        }
-
-        function undoAction() {
-            if (undoStack.length > 0) {
-                const state = undoStack.pop();
-                document.querySelectorAll('.text-layer span').forEach(span => {
-                    const item = state.text.find(t => t.page === span.dataset.page && t.index === span.dataset.index);
-                    if (item) {
-                        span.textContent = item.text;
-                        span.setAttribute('style', item.style);
+                // Find existing line at this Y position
+                let line = null;
+                for (const l of lines) {
+                    if (Math.abs(l.y - y) < lineThreshold) {
+                        line = l;
+                        break;
                     }
+                }
+
+                if (!line) {
+                    line = { y: y, items: [], fontSize: fontSize, fontFamily: item.fontName || 'Helvetica' };
+                    lines.push(line);
+                }
+
+                line.items.push({
+                    text: item.str,
+                    x: x,
+                    y: y,
+                    fontSize: fontSize,
+                    fontFamily: item.fontName || 'Helvetica',
+                    width: item.width || 0,
+                    height: fontSize
                 });
+            });
+
+            // Sort each line's items by X position
+            lines.forEach(line => {
+                line.items.sort((a, b) => a.x - b.x);
+            });
+
+            // Sort lines by Y position (top to bottom)
+            lines.sort((a, b) => a.y - b.y);
+
+            return lines;
+        }
+
+        // =====================================================
+        // CREATE EDITABLE LINE
+        // =====================================================
+        function createEditableLine(line, pageNum, viewport) {
+            const div = document.createElement('div');
+            div.className = 'text-item';
+            div.contentEditable = 'true';
+            div.dataset.page = pageNum;
+            div.dataset.lineIndex = allTextLines.length;
+            div.dataset.originalText = line.items.map(i => i.text).join('');
+
+            // Combine text items in this line
+            const lineText = line.items.map(i => i.text).join('');
+            div.textContent = lineText;
+
+            // Position (leftmost item's X, Y adjusted for text baseline)
+            const leftX = Math.min(...line.items.map(i => i.x));
+            const totalWidth = line.reduce((max, item) => {
+                return Math.max(max, item.x + item.width);
+            }, 0) - leftX;
+
+            div.style.position = 'absolute';
+            div.style.left = (leftX * zoom) + 'px';
+            div.style.top = ((line.y - line.fontSize) * zoom) + 'px';
+            div.style.fontSize = (line.fontSize * zoom) + 'px';
+            div.style.fontFamily = mapFontToWeb(line.fontFamily);
+            div.style.color = '#000';
+            div.style.background = 'transparent';
+            div.style.border = '1px solid transparent';
+            div.style.padding = '0';
+            div.style.margin = '0';
+            div.style.lineHeight = '1.2';
+            div.style.outline = 'none';
+            div.style.whiteSpace = 'pre';
+            div.style.cursor = 'text';
+            div.style.pointerEvents = 'auto';
+            div.style.userSelect = 'text';
+            div.style.minWidth = Math.max(totalWidth * zoom, 20) + 'px';
+
+            // Store original data for export
+            div._originalData = {
+                page: pageNum,
+                x: leftX,
+                y: line.y,
+                fontSize: line.fontSize,
+                fontFamily: line.fontFamily,
+                width: totalWidth,
+                height: line.fontSize
+            };
+
+            // Event listeners
+            div.addEventListener('focus', () => {
+                currentEditingElement = div;
+                div.classList.add('editing');
+
+                // Update toolbar with current values
+                const currentSize = parseInt(div.style.fontSize) / zoom;
+                fontSizeInput.value = Math.round(currentSize);
+
+                // Try to match font family
+                const fontFamily = div.style.fontFamily;
+                const options = Array.from(fontFamilySelect.options).map(o => o.value);
+                const match = options.find(f => fontFamily.includes(f));
+                if (match) fontFamilySelect.value = match;
+            });
+
+            div.addEventListener('blur', () => {
+                currentEditingElement = null;
+                div.classList.remove('editing');
+
+                // Check if text changed
+                const newText = div.textContent;
+                const originalText = div.dataset.originalText;
+                if (newText !== originalText) {
+                    div.dataset.originalText = newText;
+                    changes++;
+                    updateChangeCount();
+                }
+            });
+
+            // Prevent newlines in single-line edit
+            div.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    div.blur();
+                }
+            });
+
+            return div;
+        }
+
+        // =====================================================
+        // MAP PDF FONTS TO WEB FONTS
+        // =====================================================
+        function mapFontToWeb(pdfFontName) {
+            if (!pdfFontName) return "'Helvetica', Arial, sans-serif";
+
+            // Common PDF font name mappings
+            const fontMap = {
+                'Helvetica': "'Helvetica', Arial, sans-serif",
+                'Helvetica-Bold': "'Helvetica', Arial, sans-serif",
+                'Helvetica-Oblique': "'Helvetica', Arial, sans-serif",
+                'Helvetica-BoldOblique': "'Helvetica', Arial, sans-serif",
+                'Times-Roman': "'Times New Roman', Times, serif",
+                'Times-Bold': "'Times New Roman', Times, serif",
+                'Times-Italic': "'Times New Roman', Times, serif",
+                'Times-BoldItalic': "'Times New Roman', Times, serif",
+                'Courier': "'Courier New', Courier, monospace",
+                'Courier-Bold': "'Courier New', Courier, monospace",
+                'Courier-Oblique': "'Courier New', Courier, monospace",
+                'Courier-BoldOblique': "'Courier New', Courier, monospace",
+                'ZapfDingbats': "'ZapfDingbats', sans-serif",
+                'Symbol': "'Symbol', sans-serif"
+            };
+
+            // Try exact match
+            if (fontMap[pdfFontName]) return fontMap[pdfFontName];
+
+            // Try partial match
+            for (const [key, value] of Object.entries(fontMap)) {
+                if (pdfFontName.includes(key)) return value;
             }
+
+            // Try to detect from name
+            if (pdfFontName.toLowerCase().includes('helvetica') || pdfFontName.toLowerCase().includes('arial')) {
+                return "'Helvetica', Arial, sans-serif";
+            }
+            if (pdfFontName.toLowerCase().includes('times') || pdfFontName.toLowerCase().includes('roman')) {
+                return "'Times New Roman', Times, serif";
+            }
+            if (pdfFontName.toLowerCase().includes('courier') || pdfFontName.toLowerCase().includes('mono')) {
+                return "'Courier New', Courier, monospace";
+            }
+
+            // Default
+            return "'Helvetica', Arial, sans-serif";
         }
 
-        function redoAction() {
-            alert('Redo functionality requires full state management');
+        // =====================================================
+        // THUMBNAILS
+        // =====================================================
+        async function createThumbnail(pageNum, viewport) {
+            const thumb = document.createElement('div');
+            thumb.className = 'page-thumb' + (pageNum === 1 ? ' active' : '');
+
+            const img = document.createElement('img');
+            const page = await pdfDoc.getPage(pageNum);
+            const thumbViewport = page.getViewport({ scale: 0.2 });
+
+            const thumbCanvas = document.createElement('canvas');
+            thumbCanvas.width = thumbViewport.width;
+            thumbCanvas.height = thumbViewport.height;
+
+            const ctx = thumbCanvas.getContext('2d');
+            await page.render({
+                canvasContext: ctx,
+                viewport: thumbViewport
+            }).promise;
+
+            img.src = thumbCanvas.toDataURL();
+            thumb.appendChild(img);
+            thumb.title = `Page ${pageNum}`;
+
+            thumb.addEventListener('click', () => {
+                document.querySelectorAll('.page-thumb').forEach(t => t.classList.remove('active'));
+                thumb.classList.add('active');
+                document.getElementById(`page-wrapper-${pageNum}`).scrollIntoView({ behavior: 'smooth' });
+            });
+
+            pagesPanel.appendChild(thumb);
         }
 
+        // =====================================================
+        // ZOOM
+        // =====================================================
+        function changeZoom(delta) {
+            zoom = Math.max(0.5, Math.min(3, zoom + delta));
+            zoomLevelEl.textContent = Math.round(zoom * 100) + '%';
+            if (pdfDoc) renderAllPages();
+        }
+
+        // =====================================================
+        // EXPORT PDF
+        // =====================================================
         async function exportPDF() {
-            const progressBar = document.getElementById('progressBar');
-            const progress = document.getElementById('progress');
-            const resultArea = document.getElementById('resultArea');
-
             progressBar.style.display = 'block';
+            progressFill.style.width = '30%';
             resultArea.style.display = 'none';
-            progress.style.width = '30%';
 
             try {
-                // Read file fresh for export to avoid detached buffer
+                // Read original file fresh
                 const arrayBuffer = await currentFile.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
-                const pdfDoc = await PDFLib.PDFDocument.load(uint8Array.slice());
-                
-                progress.style.width = '60%';
-                
-                for (let i = 1; i <= pdfDoc.getPageCount(); i++) {
-                    const page = pdfDoc.getPage(i - 1);
-                    const { width, height } = page.getSize();
-                    const textLayer = document.getElementById(`text-layer-${i}`);
-                    
-                    if (textLayer) {
-                        const spans = textLayer.querySelectorAll('span');
-                        for (const span of spans) {
-                            const text = span.textContent;
-                            const fontSize = parseInt(span.style.fontSize) / zoom;
-                            const x = parseFloat(span.style.left) / zoom;
-                            const y = height - (parseFloat(span.style.top) / zoom);
-                            
-                            page.drawText(text, {
-                                x: x,
-                                y: y,
-                                size: fontSize,
-                                font: await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica),
-                                color: PDFLib.rgb(0, 0, 0)
-                            });
-                        }
+                const doc = await PDFLib.PDFDocument.load(uint8Array.slice());
+
+                progressFill.style.width = '60%';
+
+                // Get standard fonts
+                const helvetica = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+                const times = await doc.embedFont(PDFLib.StandardFonts.TimesRoman);
+                const courier = await doc.embedFont(PDFLib.StandardFonts.Courier);
+
+                // Get all text items and find edited ones
+                const textItems = document.querySelectorAll('.text-item');
+
+                for (const item of textItems) {
+                    const newText = item.textContent;
+                    const original = item.dataset.originalText;
+
+                    if (newText === original) continue; // Not edited
+
+                    const data = item._originalData;
+                    const pageNum = data.page;
+                    const page = doc.getPage(pageNum - 1);
+                    const { width: pageWidth, height: pageHeight } = page.getSize();
+
+                    // Scale coordinates to page size
+                    const wrapper = document.getElementById(`page-wrapper-${pageNum}`);
+                    const wrapperWidth = wrapper.offsetWidth;
+                    const wrapperHeight = wrapper.offsetHeight;
+                    const scaleX = pageWidth / wrapperWidth;
+                    const scaleY = pageHeight / wrapperHeight;
+
+                    const x = data.x * scaleX;
+                    const y = pageHeight - (data.y * scaleY);
+                    const fontSize = data.fontSize * Math.min(scaleX, scaleY);
+                    const textWidth = data.width * scaleX;
+
+                    // Choose font based on family
+                    let font = helvetica;
+                    if (data.fontFamily.toLowerCase().includes('times') || data.fontFamily.toLowerCase().includes('roman')) {
+                        font = times;
+                    } else if (data.fontFamily.toLowerCase().includes('courier') || data.fontFamily.toLowerCase().includes('mono')) {
+                        font = courier;
                     }
+
+                    // Draw white rectangle to cover old text
+                    page.drawLine({
+                        start: { x: x - 2, y: y + fontSize },
+                        end: { x: x + textWidth + 2, y: y + fontSize },
+                        thickness: fontSize * 1.2,
+                        color: PDFLib.rgb(1, 1, 1)
+                    });
+
+                    // Draw new text
+                    page.drawText(newText, {
+                        x: x,
+                        y: y,
+                        size: fontSize,
+                        font: font,
+                        color: PDFLib.rgb(0, 0, 0)
+                    });
                 }
-                
-                const pdfBytes = await pdfDoc.save();
-                resultBlob = new Blob([pdfBytes], { type: 'application/pdf' });
-                
-                progress.style.width = '100%';
-                progressBar.style.display = 'none';
-                resultArea.style.display = 'block';
-                document.getElementById('resultText').textContent = `PDF edited and saved (${formatBytes(resultBlob.size)})`;
+
+                progressFill.style.width = '90%';
+
+                // Save PDF
+                const pdfBytes = await doc.save();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const url = URL.createObjectURL(blob);
+
+                downloadLink.href = url;
+                downloadLink.download = 'edited.pdf';
+
+                progressFill.style.width = '100%';
+                setTimeout(() => {
+                    progressBar.style.display = 'none';
+                    resultArea.style.display = 'block';
+                }, 300);
+
             } catch (err) {
-                console.error('Save failed:', err);
-                alert('Failed to save PDF. Please try again.');
+                console.error('Failed to export PDF:', err);
+                alert('Failed to export PDF: ' + err.message);
                 progressBar.style.display = 'none';
             }
         }
 
-        function downloadResult() {
-            if (resultBlob) {
-                const baseName = getFileNameWithoutExt(currentFile.name);
-                downloadBlob(resultBlob, `${baseName}_edited.pdf`);
-            }
-        }
-
-        function clearEditor() {
-            currentFile = null;
+        // =====================================================
+        // RESET
+        // =====================================================
+        function resetEditor() {
             pdfDoc = null;
             pdfLibDoc = null;
-            textItems = [];
-            undoStack = [];
-            redoStack = [];
-            editorContainer.style.display = 'none';
+            currentFile = null;
+            allTextLines = [];
+            changes = 0;
+            zoom = 1;
+            currentEditingElement = null;
+
+            zoomLevelEl.textContent = '100%';
+            viewer.innerHTML = '';
+            pagesPanel.innerHTML = '';
+            resultArea.style.display = 'none';
             uploadZone.style.display = 'block';
-            document.getElementById('resultArea').style.display = 'none';
-            document.getElementById('progressBar').style.display = 'none';
+            editorContainer.style.display = 'none';
+            fileInput.value = '';
+            updateChangeCount();
+        }
+
+        // =====================================================
+        // UPDATE CHANGE COUNT
+        // =====================================================
+        function updateChangeCount() {
+            changeCountEl.textContent = changes + (changes === 1 ? ' change' : ' changes');
         }
     </script>
 </body>
