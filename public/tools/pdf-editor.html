@@ -3,84 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Editor - Easy File Tools</title>
+    <title>PDF Editor - Edit PDF Text Online | Easy File Tools</title>
+    <meta name="description" content="Edit PDF text online for free. Click and type to change any text in your PDF. Works like Adobe Acrobat Pro.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="manifest" href="../manifest.json">
     <link rel="icon" type="image/png" href="../images/icon-192.png">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            background: var(--bg-primary);
-            color: #e0e0e0;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            min-height: 100vh;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            padding: 15px 30px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .header h1 {
-            font-size: 1.5em;
-            background: linear-gradient(45deg, var(--neon-blue), var(--neon-purple));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .header a {
-            color: var(--neon-blue);
-            text-decoration: none;
-            margin: 0 15px;
-        }
-
-        .header a:hover { color: var(--neon-purple); }
-
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-
-        /* Upload Zone */
-        .upload-zone {
-            border: 3px dashed rgba(0, 212, 255, 0.3);
-            border-radius: 15px;
-            padding: 60px;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.3);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin: 40px auto;
-            max-width: 600px;
-        }
-
-        .upload-zone:hover {
-            border-color: var(--neon-blue);
-            background: rgba(0, 212, 255, 0.05);
-        }
-
-        .upload-zone.dragover {
-            border-color: var(--neon-cyan);
-            background: rgba(6, 255, 210, 0.1);
-        }
-
-        .upload-icon { font-size: 4em; margin-bottom: 20px; }
-
-        .upload-zone h2 {
-            font-size: 1.8em;
-            margin-bottom: 15px;
-            color: #fff;
-        }
-
-        .upload-zone p { color: #888; font-size: 1.1em; }
-        #fileInput { display: none; }
-
-        /* Editor */
-        .editor-container { display: none; }
-
-        .toolbar {
+        .editor-toolbar {
             background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
             padding: 15px 20px;
             border-radius: 10px;
@@ -102,58 +32,37 @@
 
         .toolbar-group:last-child { border-right: none; }
 
-        .toolbar label { font-size: 0.9em; color: #aaa; }
+        .toolbar-group label { font-size: 0.9em; color: var(--text-secondary); }
 
-        .toolbar select, .toolbar input[type="number"] {
-            background: #2a2a3e;
+        .toolbar-group select,
+        .toolbar-group input[type="number"] {
+            background: var(--bg-secondary);
             border: 1px solid rgba(0, 212, 255, 0.3);
-            color: #fff;
+            color: var(--text-primary);
             padding: 8px 12px;
             border-radius: 6px;
             font-size: 0.9em;
         }
 
-        .toolbar select { cursor: pointer; }
-        .toolbar select:focus { outline: none; border-color: var(--neon-blue); }
+        .toolbar-group select { cursor: pointer; }
+        .toolbar-group select:focus { outline: none; border-color: var(--neon-blue); }
 
-        .toolbar input[type="color"] {
+        .toolbar-group input[type="color"] {
             width: 30px; height: 30px;
             border: 1px solid rgba(0, 212, 255, 0.3);
             border-radius: 6px; cursor: pointer; background: none;
         }
 
-        .toolbar input[type="number"] {
+        .toolbar-group input[type="number"] {
             width: 60px; text-align: center;
         }
 
-        .toolbar button {
-            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
-            border: none; color: #fff;
-            padding: 8px 16px;
-            border-radius: 6px; cursor: pointer;
-            font-size: 0.9em;
-            transition: all 0.3s ease;
-        }
-
-        .toolbar button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-        }
-
-        .toolbar button.secondary {
-            background: #2a2a3e;
-            border: 1px solid rgba(0, 212, 255, 0.3);
-        }
-
-        .toolbar button.secondary:hover { background: #3a3a5e; }
-
-        /* Viewer */
         .viewer {
-            background: #1a1a2e;
+            background: var(--bg-secondary);
             border-radius: 10px;
             padding: 20px;
             overflow: auto;
-            max-height: 80vh;
+            max-height: 70vh;
             border: 1px solid rgba(0, 212, 255, 0.2);
         }
 
@@ -185,7 +94,7 @@
             color: #000;
             padding: 0;
             margin: 0;
-            line-height: 1;
+            line-height: 1.2;
             font-family: 'Helvetica', Arial, sans-serif;
             user-select: text;
             transition: border-color 0.2s, background 0.2s;
@@ -196,69 +105,13 @@
             background: rgba(255, 255, 255, 0.7);
         }
 
-        .text-item:focus {
+        .text-item:focus,
+        .text-item.editing {
             border: 2px solid var(--neon-blue);
             background: #ffffff;
             z-index: 100;
         }
 
-        .text-item.editing {
-            border: 2px solid var(--neon-cyan);
-            background: #ffffff;
-            z-index: 100;
-        }
-
-        /* Progress */
-        .progress-bar {
-            width: 100%;
-            height: 4px;
-            background: #2a2a3e;
-            border-radius: 2px;
-            overflow: hidden;
-            margin: 20px 0;
-            display: none;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
-            transition: width 0.3s ease;
-        }
-
-        /* Result */
-        .result-area {
-            display: none;
-            background: rgba(6, 255, 210, 0.1);
-            border: 1px solid var(--neon-cyan);
-            border-radius: 10px;
-            padding: 20px;
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .result-area a {
-            color: var(--neon-cyan);
-            text-decoration: none;
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-
-        .result-area a:hover { color: var(--neon-blue); }
-
-        /* Zoom */
-        .zoom-controls {
-            display: flex; align-items: center; gap: 10px;
-        }
-
-        .zoom-controls button {
-            width: 30px; height: 30px;
-            display: flex; align-items: center; justify-content: center;
-            padding: 0;
-        }
-
-        .page-indicator { color: #aaa; font-size: 0.9em; }
-
-        /* Page thumbnails */
         .pages-panel {
             display: flex;
             gap: 10px;
@@ -281,39 +134,106 @@
         .page-thumb.active { border-color: var(--neon-blue); }
         .page-thumb img { width: 100%; height: 100%; object-fit: contain; }
 
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--bg-secondary);
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple));
+            transition: width 0.3s ease;
+        }
+
+        .result-area {
+            display: none;
+            background: rgba(6, 255, 210, 0.1);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .result-area a {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .result-area a:hover { color: var(--neon-blue); }
+
+        .zoom-controls {
+            display: flex; align-items: center; gap: 10px;
+        }
+
+        .zoom-controls button {
+            width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0;
+            background: var(--bg-secondary);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .zoom-controls button:hover { background: var(--bg-tertiary); }
+
+        .page-indicator { color: var(--text-secondary); font-size: 0.9em; }
+
         @media (max-width: 768px) {
-            .header { flex-direction: column; gap: 10px; }
-            .toolbar { flex-direction: column; align-items: stretch; }
+            .editor-toolbar { flex-direction: column; align-items: stretch; }
             .toolbar-group {
                 border-right: none;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 padding-bottom: 10px;
             }
-            .container { padding: 10px; }
-            .viewer { padding: 10px; }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div>
-            <a href="../index.html">Home</a>
-            <a href="javascript:history.back()">Back</a>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
         </div>
-        <h1>PDF Editor</h1>
-        <div></div>
-    </div>
+    </nav>
 
-    <div class="container">
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>PDF Editor</h1>
+            <p>Edit text directly in your PDF. Click any text to change it, then save your modified PDF.</p>
+        </div>
+
         <div class="upload-zone" id="uploadZone">
-            <div class="upload-icon">📄</div>
-            <h2>Upload PDF to Edit</h2>
-            <p>Click or drag & drop your PDF file here</p>
-            <input type="file" id="fileInput" accept=".pdf">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Drop PDF here or click to select</h3>
+            <p>PDF files only</p>
+            <input type="file" id="fileInput" accept=".pdf" hidden>
         </div>
 
-        <div class="editor-container" id="editorContainer">
-            <div class="toolbar">
+        <div id="editorArea" style="display:none;">
+            <div class="editor-toolbar">
                 <div class="toolbar-group">
                     <label>Font:</label>
                     <select id="fontFamily">
@@ -350,8 +270,8 @@
                 </div>
 
                 <div class="toolbar-group">
-                    <button onclick="exportPDF()">Save PDF</button>
-                    <button class="secondary" onclick="resetEditor()">New File</button>
+                    <button class="btn" onclick="exportPDF()">Save PDF</button>
+                    <button class="btn btn-secondary" onclick="resetEditor()">New File</button>
                 </div>
             </div>
 
@@ -368,26 +288,25 @@
                 <a id="downloadLink" href="#" download="edited.pdf">Download Edited PDF</a>
             </div>
         </div>
-    </div>
+    </main>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
     <script>
-        // Set pdf.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         // State
-        let pdfDoc = null;         // pdf.js document
-        let pdfLibDoc = null;      // pdf-lib document (for export)
-        let currentFile = null;    // File object
-        let zoom = 1;              // Current zoom level
-        let allTextLines = [];     // All text line objects across all pages
-        let changes = 0;           // Number of edits made
+        let pdfDoc = null;
+        let pdfLibDoc = null;
+        let currentFile = null;
+        let zoom = 1;
+        let changes = 0;
+        let currentEditingElement = null;
 
         // DOM elements
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
-        const editorContainer = document.getElementById('editorContainer');
+        const editorArea = document.getElementById('editorArea');
         const viewer = document.getElementById('viewer');
         const progressBar = document.getElementById('progressBar');
         const progressFill = document.getElementById('progressFill');
@@ -399,8 +318,6 @@
         const fontColorInput = document.getElementById('fontColor');
         const pagesPanel = document.getElementById('pagesPanel');
         const changeCountEl = document.getElementById('changeCount');
-
-        let currentEditingElement = null;
 
         // Upload events
         uploadZone.addEventListener('click', () => fileInput.click());
@@ -430,7 +347,7 @@
             if (file) loadPDF(file);
         });
 
-        // Apply toolbar changes to current element
+        // Toolbar events
         fontFamilySelect.addEventListener('change', () => {
             if (currentEditingElement) {
                 currentEditingElement.style.fontFamily = fontFamilySelect.value;
@@ -461,14 +378,14 @@
             updateChangeCount();
 
             try {
-                // Read file once
+                // Read file once as Uint8Array to avoid detached ArrayBuffer
                 const arrayBuffer = await file.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
 
-                // Load with pdf.js for rendering
+                // Load with pdf.js for rendering (use .slice() copy)
                 pdfDoc = await pdfjsLib.getDocument({ data: uint8Array.slice() }).promise;
 
-                // Load with pdf-lib for export
+                // Load with pdf-lib for export (use .slice() copy)
                 pdfLibDoc = await PDFLib.PDFDocument.load(uint8Array.slice());
 
                 progressFill.style.width = '50%';
@@ -482,7 +399,7 @@
                 }, 300);
 
                 uploadZone.style.display = 'none';
-                editorContainer.style.display = 'block';
+                editorArea.style.display = 'block';
 
             } catch (err) {
                 console.error('Failed to load PDF:', err);
@@ -497,7 +414,6 @@
         async function renderAllPages() {
             viewer.innerHTML = '';
             pagesPanel.innerHTML = '';
-            allTextLines = [];
 
             for (let i = 1; i <= pdfDoc.numPages; i++) {
                 progressFill.style.width = 20 + (i / pdfDoc.numPages * 30) + '%';
@@ -516,7 +432,7 @@
             wrapper.style.width = viewport.width + 'px';
             wrapper.style.height = viewport.height + 'px';
 
-            // Render page as canvas (includes text - we'll mask it)
+            // Render page as canvas
             const canvas = document.createElement('canvas');
             canvas.className = 'page-canvas';
             canvas.width = viewport.width;
@@ -558,7 +474,7 @@
         // =====================================================
         function groupTextIntoLines(items, viewport) {
             const lines = [];
-            const lineThreshold = 3; // pixels - items within this Y range are same line
+            const lineThreshold = 3;
 
             items.forEach(item => {
                 if (!item.str || item.str.trim() === '') return;
@@ -568,7 +484,6 @@
                 const x = tx[4];
                 const y = viewport.height - tx[5];
 
-                // Find existing line at this Y position
                 let line = null;
                 for (const l of lines) {
                     if (Math.abs(l.y - y) < lineThreshold) {
@@ -593,12 +508,10 @@
                 });
             });
 
-            // Sort each line's items by X position
+            // Sort by X within each line, then by Y for lines
             lines.forEach(line => {
                 line.items.sort((a, b) => a.x - b.x);
             });
-
-            // Sort lines by Y position (top to bottom)
             lines.sort((a, b) => a.y - b.y);
 
             return lines;
@@ -612,14 +525,13 @@
             div.className = 'text-item';
             div.contentEditable = 'true';
             div.dataset.page = pageNum;
-            div.dataset.lineIndex = allTextLines.length;
             div.dataset.originalText = line.items.map(i => i.text).join('');
 
             // Combine text items in this line
             const lineText = line.items.map(i => i.text).join('');
             div.textContent = lineText;
 
-            // Position (leftmost item's X, Y adjusted for text baseline)
+            // Position
             const leftX = Math.min(...line.items.map(i => i.x));
             const totalWidth = line.reduce((max, item) => {
                 return Math.max(max, item.x + item.width);
@@ -659,11 +571,9 @@
                 currentEditingElement = div;
                 div.classList.add('editing');
 
-                // Update toolbar with current values
                 const currentSize = parseInt(div.style.fontSize) / zoom;
                 fontSizeInput.value = Math.round(currentSize);
 
-                // Try to match font family
                 const fontFamily = div.style.fontFamily;
                 const options = Array.from(fontFamilySelect.options).map(o => o.value);
                 const match = options.find(f => fontFamily.includes(f));
@@ -674,7 +584,6 @@
                 currentEditingElement = null;
                 div.classList.remove('editing');
 
-                // Check if text changed
                 const newText = div.textContent;
                 const originalText = div.dataset.originalText;
                 if (newText !== originalText) {
@@ -684,7 +593,6 @@
                 }
             });
 
-            // Prevent newlines in single-line edit
             div.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -701,7 +609,6 @@
         function mapFontToWeb(pdfFontName) {
             if (!pdfFontName) return "'Helvetica', Arial, sans-serif";
 
-            // Common PDF font name mappings
             const fontMap = {
                 'Helvetica': "'Helvetica', Arial, sans-serif",
                 'Helvetica-Bold': "'Helvetica', Arial, sans-serif",
@@ -714,20 +621,15 @@
                 'Courier': "'Courier New', Courier, monospace",
                 'Courier-Bold': "'Courier New', Courier, monospace",
                 'Courier-Oblique': "'Courier New', Courier, monospace",
-                'Courier-BoldOblique': "'Courier New', Courier, monospace",
-                'ZapfDingbats': "'ZapfDingbats', sans-serif",
-                'Symbol': "'Symbol', sans-serif"
+                'Courier-BoldOblique': "'Courier New', Courier, monospace"
             };
 
-            // Try exact match
             if (fontMap[pdfFontName]) return fontMap[pdfFontName];
 
-            // Try partial match
             for (const [key, value] of Object.entries(fontMap)) {
                 if (pdfFontName.includes(key)) return value;
             }
 
-            // Try to detect from name
             if (pdfFontName.toLowerCase().includes('helvetica') || pdfFontName.toLowerCase().includes('arial')) {
                 return "'Helvetica', Arial, sans-serif";
             }
@@ -738,7 +640,6 @@
                 return "'Courier New', Courier, monospace";
             }
 
-            // Default
             return "'Helvetica', Arial, sans-serif";
         }
 
@@ -794,33 +695,29 @@
             resultArea.style.display = 'none';
 
             try {
-                // Read original file fresh
                 const arrayBuffer = await currentFile.arrayBuffer();
                 const uint8Array = new Uint8Array(arrayBuffer);
                 const doc = await PDFLib.PDFDocument.load(uint8Array.slice());
 
                 progressFill.style.width = '60%';
 
-                // Get standard fonts
                 const helvetica = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
                 const times = await doc.embedFont(PDFLib.StandardFonts.TimesRoman);
                 const courier = await doc.embedFont(PDFLib.StandardFonts.Courier);
 
-                // Get all text items and find edited ones
                 const textItems = document.querySelectorAll('.text-item');
 
                 for (const item of textItems) {
                     const newText = item.textContent;
                     const original = item.dataset.originalText;
 
-                    if (newText === original) continue; // Not edited
+                    if (newText === original) continue;
 
                     const data = item._originalData;
                     const pageNum = data.page;
                     const page = doc.getPage(pageNum - 1);
                     const { width: pageWidth, height: pageHeight } = page.getSize();
 
-                    // Scale coordinates to page size
                     const wrapper = document.getElementById(`page-wrapper-${pageNum}`);
                     const wrapperWidth = wrapper.offsetWidth;
                     const wrapperHeight = wrapper.offsetHeight;
@@ -832,7 +729,6 @@
                     const fontSize = data.fontSize * Math.min(scaleX, scaleY);
                     const textWidth = data.width * scaleX;
 
-                    // Choose font based on family
                     let font = helvetica;
                     if (data.fontFamily.toLowerCase().includes('times') || data.fontFamily.toLowerCase().includes('roman')) {
                         font = times;
@@ -860,7 +756,6 @@
 
                 progressFill.style.width = '90%';
 
-                // Save PDF
                 const pdfBytes = await doc.save();
                 const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const url = URL.createObjectURL(blob);
@@ -888,7 +783,6 @@
             pdfDoc = null;
             pdfLibDoc = null;
             currentFile = null;
-            allTextLines = [];
             changes = 0;
             zoom = 1;
             currentEditingElement = null;
@@ -898,14 +792,11 @@
             pagesPanel.innerHTML = '';
             resultArea.style.display = 'none';
             uploadZone.style.display = 'block';
-            editorContainer.style.display = 'none';
+            editorArea.style.display = 'none';
             fileInput.value = '';
             updateChangeCount();
         }
 
-        // =====================================================
-        // UPDATE CHANGE COUNT
-        // =====================================================
         function updateChangeCount() {
             changeCountEl.textContent = changes + (changes === 1 ? ' change' : ' changes');
         }
