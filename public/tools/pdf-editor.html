@@ -101,14 +101,18 @@
             padding: 0;
             margin: 0;
             line-height: 1;
+            color: #000000;
+            background: transparent;
+            outline: none;
+            user-select: text;
         }
         .text-layer span:hover {
             border-color: rgba(0, 212, 255, 0.3);
             background: rgba(0, 212, 255, 0.05);
         }
-        .text-layer span.selected {
+        .text-layer span:focus {
             border-color: var(--neon-blue);
-            background: rgba(0, 212, 255, 0.1);
+            background: rgba(255, 255, 255, 0.9);
         }
         .page-thumbnails {
             flex: 1;
@@ -467,53 +471,85 @@
                 pageContainer.id = `page-${i}`;
                 pageContainer.style.width = viewport.width + 'px';
                 pageContainer.style.height = viewport.height + 'px';
+                pageContainer.style.position = 'relative';
                 
+                // Render page WITHOUT text (images/backgrounds only)
                 const canvas = document.createElement('canvas');
                 canvas.width = viewport.width;
                 canvas.height = viewport.height;
-                canvas.style.width = '100%';
-                canvas.style.height = '100%';
+                canvas.style.position = 'absolute';
+                canvas.style.top = '0';
+                canvas.style.left = '0';
+                canvas.style.pointerEvents = 'none';
                 
                 await page.render({
                     canvasContext: canvas.getContext('2d'),
-                    viewport: viewport
+                    viewport: viewport,
+                    renderTextAsImages: true
                 }).promise;
                 
                 pageContainer.appendChild(canvas);
                 
+                // Create editable text layer - this IS the text
                 const textLayer = document.createElement('div');
                 textLayer.className = 'text-layer';
                 textLayer.id = `text-layer-${i}`;
+                textLayer.style.position = 'absolute';
+                textLayer.style.top = '0';
+                textLayer.style.left = '0';
+                textLayer.style.width = viewport.width + 'px';
+                textLayer.style.height = viewport.height + 'px';
+                textLayer.style.pointerEvents = 'none';
                 
                 const textContent = await page.getTextContent();
-                const items = [];
                 
                 for (const item of textContent.items) {
                     const span = document.createElement('span');
                     span.textContent = item.str;
                     span.dataset.page = i;
-                    span.dataset.index = items.length;
+                    span.dataset.index = textContent.items.indexOf(item);
+                    span.dataset.original = item.str;
+                    span.contentEditable = 'true';
                     
                     const tx = item.transform;
+                    const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
                     const x = tx[4];
                     const y = viewport.height - tx[5];
                     
+                    span.style.position = 'absolute';
                     span.style.left = (x * zoom) + 'px';
-                    span.style.top = (y * zoom) + 'px';
-                    span.style.fontSize = (Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]) * zoom) + 'px';
+                    span.style.top = ((y - fontSize) * zoom) + 'px';
+                    span.style.fontSize = (fontSize * zoom) + 'px';
                     span.style.fontFamily = item.fontName || 'Arial';
+                    span.style.color = '#000';
+                    span.style.background = 'transparent';
+                    span.style.border = '1px solid transparent';
+                    span.style.padding = '0';
+                    span.style.margin = '0';
+                    span.style.lineHeight = '1';
+                    span.style.outline = 'none';
+                    span.style.whiteSpace = 'pre';
+                    span.style.cursor = 'text';
+                    span.style.pointerEvents = 'auto';
+                    span.style.userSelect = 'text';
+                    
+                    span.addEventListener('focus', () => {
+                        span.style.border = '1px solid var(--neon-blue)';
+                        span.style.background = 'rgba(255, 255, 255, 0.9)';
+                        selectedText = span;
+                    });
+                    
+                    span.addEventListener('blur', () => {
+                        span.style.border = '1px solid transparent';
+                        span.style.background = 'transparent';
+                        saveState();
+                    });
+                    
+                    span.addEventListener('input', () => {
+                        saveState();
+                    });
                     
                     textLayer.appendChild(span);
-                    items.push({
-                        element: span,
-                        page: i,
-                        index: items.length,
-                        x: x,
-                        y: y,
-                        fontSize: Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]),
-                        fontFamily: item.fontName || 'Arial',
-                        text: item.str
-                    });
                 }
                 
                 pageContainer.appendChild(textLayer);
@@ -555,71 +591,16 @@
         }
 
         function addTextListeners() {
-            document.querySelectorAll('.text-layer span').forEach(span => {
-                span.addEventListener('click', (e) => {
-                    if (currentTool === 'edit') {
-                        startEditing(span, e);
-                    } else if (currentTool === 'select') {
-                        selectText(span);
-                    }
-                });
-            });
+            // Text spans are already contentEditable
+            // Event listeners added during renderAllPages
         }
 
         function selectText(span) {
-            document.querySelectorAll('.text-layer span.selected').forEach(el => {
-                el.classList.remove('selected');
-            });
-            
-            span.classList.add('selected');
+            span.focus();
             selectedText = span;
             
             document.getElementById('fontSize').value = parseInt(span.style.fontSize);
             document.getElementById('fontFamily').value = span.style.fontFamily || 'Arial';
-        }
-
-        function startEditing(span, event) {
-            if (isEditing) return;
-            isEditing = true;
-            
-            const editor = document.createElement('div');
-            editor.className = 'text-editor-overlay';
-            editor.contentEditable = true;
-            editor.textContent = span.textContent;
-            
-            const rect = span.getBoundingClientRect();
-            const containerRect = span.closest('.pdf-page').getBoundingClientRect();
-            
-            editor.style.left = (rect.left - containerRect.left) + 'px';
-            editor.style.top = (rect.top - containerRect.top) + 'px';
-            editor.style.width = Math.max(rect.width, 100) + 'px';
-            editor.style.height = (rect.bottom - rect.top) + 'px';
-            editor.style.fontSize = span.style.fontSize;
-            editor.style.fontFamily = span.style.fontFamily;
-            editor.style.color = span.style.color || '#000000';
-            
-            span.style.opacity = '0';
-            
-            span.closest('.pdf-page').appendChild(editor);
-            editor.focus();
-            
-            const handleBlur = () => {
-                span.textContent = editor.textContent;
-                span.style.opacity = '1';
-                editor.remove();
-                isEditing = false;
-                saveState();
-            };
-            
-            editor.addEventListener('blur', handleBlur);
-            editor.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') {
-                    editor.blur();
-                } else if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    editor.blur();
-                }
-            });
         }
 
         function setTool(tool) {
