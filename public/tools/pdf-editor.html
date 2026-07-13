@@ -375,11 +375,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-    <script>
-        // Debug: check if libraries loaded
-        console.log('pdfjsLib loaded:', typeof pdfjsLib !== 'undefined');
-        console.log('PDFLib loaded:', typeof PDFLib !== 'undefined');
-    </script>
     <script src="../js/tool-common.js"></script>
     <script>
         // Use unpkg CDN for better compatibility
@@ -426,8 +421,10 @@
                     throw new Error('File is not a valid PDF');
                 }
                 
+                // Read file once as Uint8Array to avoid detached ArrayBuffer issue
                 const arrayBuffer = await file.arrayBuffer();
-                console.log('Array buffer loaded:', arrayBuffer.byteLength);
+                const uint8Array = new Uint8Array(arrayBuffer);
+                console.log('Array buffer loaded:', uint8Array.length);
                 
                 if (!pdfjsLib) {
                     throw new Error('pdf.js library not loaded');
@@ -436,10 +433,11 @@
                     throw new Error('pdf-lib not loaded');
                 }
                 
-                pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                // Use separate copies for each library
+                pdfDoc = await pdfjsLib.getDocument({ data: uint8Array.slice() }).promise;
                 console.log('PDF loaded with pdf.js, pages:', pdfDoc.numPages);
                 
-                pdfLibDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                pdfLibDoc = await PDFLib.PDFDocument.load(uint8Array.slice());
                 console.log('PDF loaded with pdf-lib');
                 
                 await renderAllPages();
@@ -765,8 +763,10 @@
             progress.style.width = '30%';
 
             try {
+                // Read file fresh for export to avoid detached buffer
                 const arrayBuffer = await currentFile.arrayBuffer();
-                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                const uint8Array = new Uint8Array(arrayBuffer);
+                const pdfDoc = await PDFLib.PDFDocument.load(uint8Array.slice());
                 
                 progress.style.width = '60%';
                 
