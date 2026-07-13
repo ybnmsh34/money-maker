@@ -375,6 +375,11 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script>
+        // Debug: check if libraries loaded
+        console.log('pdfjsLib loaded:', typeof pdfjsLib !== 'undefined');
+        console.log('PDFLib loaded:', typeof PDFLib !== 'undefined');
+    </script>
     <script src="../js/tool-common.js"></script>
     <script>
         // Use unpkg CDN for better compatibility
