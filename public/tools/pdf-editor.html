@@ -486,9 +486,10 @@
             // This HIDES the original text so only our HTML spans show text
             const textContent = await page.getTextContent();
 
-            // EXTRACT STYLING FROM OPERATOR LIST (colors, fonts)
+            // EXTRACT STYLING FROM OPERATOR LIST (colors, fonts, underlines)
             const ops = await page.getOperatorList();
             const textStyles = extractTextStyles(ops);
+            const underlines = extractUnderlines(ops, viewport);
 
             const ctx2 = bgCanvas.getContext('2d');
             ctx2.fillStyle = '#ffffff';
@@ -518,6 +519,9 @@
                     item._color = style.color;
                     item._fontName = style.fontName || item.fontName;
                 }
+
+                // Check if there's an underline near this text Y position
+                item._hasUnderline = underlines.some(ul => Math.abs(ul.y - y) < 5);
             }
 
             bgDiv.appendChild(bgCanvas);
@@ -540,6 +544,35 @@
 
             // Thumbnail (render full page for thumb)
             await createThumbnail(pageNum);
+        }
+
+        // =========================================================
+        // EXTRACT UNDERLINES FROM OPERATOR LIST
+        // Underlines in PDFs are thin rectangles drawn below text
+        // =========================================================
+        function extractUnderlines(ops, viewport) {
+            const underlines = [];
+
+            for (let i = 0; i < ops.fnArray.length; i++) {
+                if (ops.fnArray[i] !== 91) continue; // constructPath
+
+                const args = ops.argsArray[i];
+                for (let j = 1; j < args.length; j++) {
+                    const seg = args[j];
+                    if (!seg || seg.length < 4) continue;
+
+                    const x = seg[0], y = seg[1], w = seg[2], h = seg[3];
+
+                    // Thin rectangles (height < 5) with significant width are underlines
+                    if (h < 5 && w > 20) {
+                        // Convert PDF Y to top-from-top coordinates
+                        const yFromTop = viewport.height - y;
+                        underlines.push({ y: yFromTop, x, width: w, height: h });
+                    }
+                }
+            }
+
+            return underlines;
         }
 
         // =========================================================
@@ -622,7 +655,8 @@
                     fontName: item._fontName || item.fontName || 'Helvetica',
                     width: item.width || 0,
                     height: fontSize,
-                    color: item._color
+                    color: item._color,
+                    hasUnderline: item._hasUnderline || false
                 });
             }
 
@@ -667,12 +701,24 @@
             span.style.fontFamily = mapFontToWeb(line.fontName);
 
             // BOLD: detect from font name
-            const isBold = line.fontName && (line.fontName.toLowerCase().includes('bold') || line.fontName.toLowerCase().includes('black'));
+            // "Medium", "Demi", "SemiBold" in fonts like Franklin Gothic are visually bold
+            const fontLower = (line.fontName || '').toLowerCase();
+            const isBold = fontLower.includes('bold') || fontLower.includes('black') ||
+                          fontLower.includes('medium') || fontLower.includes('demi') ||
+                          fontLower.includes('semibold');
             span.style.fontWeight = isBold ? 'bold' : 'normal';
 
             // ITALIC: detect from font name
             const isItalic = line.fontName && (line.fontName.toLowerCase().includes('italic') || line.fontName.toLowerCase().includes('oblique'));
             span.style.fontStyle = isItalic ? 'italic' : 'normal';
+
+            // UNDERLINE: from operator list (thin rectangles below text)
+            const hasUnderline = line.items.some(i => i.hasUnderline);
+            span.style.textDecoration = hasUnderline ? 'underline' : 'none';
+            if (hasUnderline) {
+                // Use the actual text color for the underline
+                span.style.textDecorationColor = span.style.color || '#000000';
+            }
 
             // COLOR: from operator list
             const firstItem = line.items.find(i => i.color);
@@ -698,7 +744,10 @@
                 fontSize: line.fontSize,
                 fontName: line.fontName,
                 width: totalWidth,
-                height: line.fontSize
+                height: line.fontSize,
+                isBold,
+                isItalic,
+                hasUnderline
             };
 
             // Focus: update toolbar to reflect current styling
@@ -733,7 +782,8 @@
                 // Bold/italic/underline buttons
                 boldBtn.style.background = span.style.fontWeight === 'bold' ? 'rgba(0,212,255,0.3)' : '';
                 italicBtn.style.background = span.style.fontStyle === 'italic' ? 'rgba(0,212,255,0.3)' : '';
-                underlineBtn.style.background = span.style.textDecoration === 'underline' ? 'rgba(0,212,255,0.3)' : '';
+                const isUnderlined = span.style.textDecoration === 'underline' || span.style.textDecorationLine === 'underline';
+                underlineBtn.style.background = isUnderlined ? 'rgba(0,212,255,0.3)' : '';
             });
 
             // Blur: track changes, clear toolbar state
@@ -742,6 +792,13 @@
                 boldBtn.style.background = '';
                 italicBtn.style.background = '';
                 underlineBtn.style.background = '';
+
+                // Reset underline to original state if text wasn't changed
+                const newText = span.textContent;
+                const orig = span.dataset.originalText;
+                if (newText === orig && span._meta && span._meta.hasUnderline === false) {
+                    span.style.textDecoration = 'none';
+                }
                 const newText = span.textContent;
                 const orig = span.dataset.originalText;
                 if (newText !== orig) {
