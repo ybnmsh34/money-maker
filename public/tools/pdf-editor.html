@@ -112,6 +112,7 @@
     <script>
 
 
+        console.log('PDF Editor script loaded');
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
         let pdfDoc = null, currentFile = null, zoom = 1, changes = 0, currentEditingEl = null, allPages = [];
         const $ = id => document.getElementById(id);
@@ -248,6 +249,7 @@
                 const span=createEditableSpan(line,pageNum);
                 pageDiv.appendChild(span);
             }
+            setupDoubleClickOnPage(pageDiv);
             viewer.appendChild(pageDiv);
         }
 
@@ -337,7 +339,171 @@
                 const nt=span.textContent, orig=span.dataset.originalText;
                 if(nt!==orig){span.dataset.originalText=nt; span.classList.add('changed'); changes++; updateChangeCount();}
             });
-            span.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();span.blur();}});
+            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e);});
+            return span;
+        }
+
+        // ============================================================
+        // FEATURE 2: Double-click on empty area → new text line
+        // ============================================================
+        function setupDoubleClickOnPage(pageDiv){
+            pageDiv.addEventListener('dblclick',function(e){
+                const clickedSpan=e.target.classList.contains('text-span') || (e.target.closest && e.target.closest('.text-span'));
+                if(clickedSpan) return;
+                const rect=pageDiv.getBoundingClientRect();
+                const x=(e.clientX-rect.left)/zoom;
+                const y=(e.clientY-rect.top)/zoom;
+                const pageNum=parseInt(pageDiv.id.split('-').pop());
+                const newSpan=createNewSpan(pageNum,x,y,12,'',null);
+                pageDiv.appendChild(newSpan);
+                newSpan.focus();
+            });
+        }
+
+        // ============================================================
+        // FEATURE 1: Split span at cursor on Enter (go down a row)
+        // ============================================================
+        function getCursorOffset(span){
+            const sel=window.getSelection();
+            if(!sel.rangeCount) return -1;
+            const range=sel.getRangeAt(0);
+            const preRange=document.createRange();
+            preRange.selectNodeContents(span);
+            preRange.setEnd(range.startContainer,range.startOffset);
+            return preRange.toString().length;
+        }
+
+        function setCursorOffset(span,pos){
+            const range=document.createRange();
+            const sel=window.getSelection();
+            let charIndex=0;
+            let found=false;
+            function walkText(node){
+                if(found) return;
+                if(node.nodeType===3){
+                    const nextCharIndex=charIndex+node.length;
+                    if(pos<=nextCharIndex){
+                        range.setStart(node,pos-charIndex);
+                        range.collapse(true);
+                        found=true; return;
+                    }
+                    charIndex=nextCharIndex;
+                } else {
+                    for(const child of node.childNodes) walkText(child);
+                }
+            }
+            walkText(span);
+            if(!found){range.setStart(span,0); range.collapse(true);}
+            sel.removeAllRanges(); sel.addRange(range);
+        }
+
+        function splitSpanAtCursor(span,e){
+            e.preventDefault();
+            const offset=getCursorOffset(span);
+            const fullText=span.textContent;
+            const before=fullText.substring(0,offset);
+            const after=fullText.substring(offset);
+            const meta=span._meta;
+            const pageDiv=span.parentElement;
+            const pageHeight=parseInt(pageDiv.style.height)||pageDiv.offsetHeight;
+
+            // Update current span with text before cursor
+            span.textContent=before;
+            span.dataset.originalText=before;
+            span.classList.add('changed');
+            changes++; updateChangeCount();
+
+            // Check if new line would be near bottom of last page → add new page
+            const newY=meta.y+meta.height;
+            const isLastPage=meta.pageNum===allPages.length;
+            const spaceBelow=pageHeight-newY*zoom;
+            const nearBottom=spaceBelow<(meta.height*zoom*5);
+
+            if(isLastPage && nearBottom){
+                // Create new page
+                const newPageNum=allPages.length+1;
+                const newPageDiv=createNewPage(newPageNum,pageDiv.offsetWidth,pageDiv.offsetHeight);
+                viewer.appendChild(newPageDiv);
+                setupDoubleClickOnPage(newPageDiv);
+                allPages.push({pageNum:newPageNum,width:pageDiv.offsetWidth/zoom,height:pageDiv.offsetHeight/zoom,lines:[]});
+                createNewThumbnail(newPageNum);
+
+                // Create span on new page at top
+                const newSpan=createNewSpan(newPageNum,meta.x,20,meta.fontSize,after,meta.fontName);
+                newSpan.classList.add('changed');
+                changes++; updateChangeCount();
+                newPageDiv.appendChild(newSpan);
+                newSpan.focus();
+                setCursorOffset(newSpan,0);
+                newPageDiv.scrollIntoView({behavior:'smooth'});
+            } else {
+                // Create new span below with text after cursor
+                const newSpan=createNewSpan(meta.pageNum,meta.x,newY,meta.fontSize,after,meta.fontName);
+                newSpan.classList.add('changed');
+                changes++; updateChangeCount();
+                pageDiv.appendChild(newSpan);
+                newSpan.focus();
+                setCursorOffset(newSpan,0);
+            }
+        }
+
+        function createNewSpan(pageNum,x,y,fontSize,text,fontName){
+            const span=document.createElement('span');
+            span.className='text-span';
+            span.contentEditable='true';
+            span.spellcheck=false;
+            span.textContent=text||'';
+            span.dataset.page=pageNum;
+            span.dataset.originalText=text||'';
+            span.dataset.newText='true';
+
+            span.style.position='absolute';
+            span.style.left=(x*zoom)+'px';
+            span.style.top=((y-fontSize)*zoom)+'px';
+            span.style.fontSize=(fontSize*zoom)+'px';
+            span.style.fontFamily=fontName?mapFontToWeb(fontName):mapFontToWeb(null);
+            span.style.fontWeight='normal';
+            span.style.fontStyle='normal';
+            span.style.textDecoration='none';
+            span.style.color='rgb(0,0,0)';
+            span.style.lineHeight='1.15';
+            span.style.whiteSpace='pre';
+            span.style.minWidth=Math.max((text||'').length*fontSize*0.6*zoom,10)+'px';
+            span.style.padding='0'; span.style.margin='0';
+            span.style.border='1px solid transparent';
+            span.style.outline='none';
+            span.style.cursor='text';
+            span.style.pointerEvents='auto';
+            span.style.userSelect='text';
+
+            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,isBold:false,isItalic:false,hasUnderline:false};
+
+            span.addEventListener('focus',()=>{
+                currentEditingEl=span;
+                fontSizeInput.value=Math.round(parseInt(span.style.fontSize)/zoom);
+                const c=span.style.color;
+                if(c.startsWith('rgb')){
+                    const m=c.match(/(\d+)/g);
+                    if(m) fontColorInput.value='#'+m.slice(0,3).map(v=>{const h=parseInt(v).toString(16);return h.length===1?'0'+h:h;}).join('');
+                } else if(c) fontColorInput.value=c;
+                const fam=span.style.fontFamily.toLowerCase();
+                if(fam.includes('serif')||fam.includes('times')) fontFamilySelect.value='serif';
+                else if(fam.includes('monospace')||fam.includes('courier')) fontFamilySelect.value='monospace';
+                else fontFamilySelect.value='helvetica';
+                boldBtn.style.background=span.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':'';
+                italicBtn.style.background=span.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':'';
+                underlineBtn.style.background=span.style.textDecoration==='underline'?'none':'';
+            });
+
+            span.addEventListener('blur',()=>{
+                currentEditingEl=null;
+                boldBtn.style.background=''; italicBtn.style.background=''; underlineBtn.style.background='';
+                const nt=span.textContent, orig=span.dataset.originalText;
+                if(nt!==orig){span.dataset.originalText=nt; span.classList.add('changed'); changes++; updateChangeCount();}
+            });
+
+            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e);});
+
             return span;
         }
 
@@ -352,6 +518,34 @@
             if(type==='serif') return "'Times New Roman', Times, serif";
             if(type==='monospace') return "'Courier New', Courier, monospace";
             return "'Helvetica', Arial, sans-serif";
+        }
+
+        // ============================================================
+        // FEATURE 3: Create new blank page and thumbnail
+        // ============================================================
+        function createNewPage(pageNum,width,height){
+            const pageDiv=document.createElement('div');
+            pageDiv.className='pdf-page';
+            pageDiv.id='pdf-page-'+pageNum;
+            pageDiv.style.width=width+'px';
+            pageDiv.style.height=height+'px';
+            return pageDiv;
+        }
+
+        function createNewThumbnail(pageNum){
+            const thumb=document.createElement('div');
+            thumb.className='page-thumb';
+            const img=document.createElement('img');
+            // Blank page thumbnail (SVG)
+            img.src='data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100"><rect fill="white" width="80" height="100" rx="2"/><text x="40" y="55" text-anchor="middle" fill="#ccc" font-size="10">Page '+pageNum+'</text></svg>';
+            thumb.appendChild(img);
+            thumb.title='Page '+pageNum;
+            thumb.addEventListener('click',()=>{
+                document.querySelectorAll('.page-thumb').forEach(t=>t.classList.remove('active'));
+                thumb.classList.add('active');
+                document.getElementById('pdf-page-'+pageNum).scrollIntoView({behavior:'smooth'});
+            });
+            pagesPanel.appendChild(thumb);
         }
 
         async function createThumbnail(pageNum){
@@ -391,10 +585,20 @@
                 const helvetica=await doc.embedFont(PDFLib.StandardFonts.Helvetica);
                 const times=await doc.embedFont(PDFLib.StandardFonts.TimesRoman);
                 const courier=await doc.embedFont(PDFLib.StandardFonts.Courier);
+
+                // Add new pages if any were created
+                const originalPages=doc.getPageCount();
+                for(let i=originalPages+1;i<=allPages.length;i++){
+                    const pg=allPages[i-1];
+                    const pe=document.getElementById('pdf-page-'+i);
+                    if(pe) doc.addPage([pe.offsetWidth,pe.offsetHeight]);
+                    else doc.addPage([612,792]); // Default letter size
+                }
+
                 const spans=document.querySelectorAll('.text-span');
                 for(const span of spans){
                     const nt=span.textContent, orig=span.dataset.originalText;
-                    if(nt===orig) continue;
+                    if(nt===orig && !span.dataset.newText) continue;
                     const m=span._meta, pg=doc.getPage(m.pageNum-1);
                     const {width:pw,height:ph}=pg.getSize();
                     const pe=document.getElementById('pdf-page-'+m.pageNum);
@@ -403,7 +607,10 @@
                     let font=helvetica;
                     if(m.fontName&&(/times|roman/i.test(m.fontName))) font=times;
                     else if(m.fontName&&(/courier|mono/i.test(m.fontName))) font=courier;
-                    pg.drawLine({start:{x:x-2,y:y+fs*0.8},end:{x:x+tw+2,y:y+fs*0.8},thickness:fs*1.3,color:PDFLib.rgb(1,1,1)});
+                    // If editing existing text, white out first
+                    if(!span.dataset.newText){
+                        pg.drawLine({start:{x:x-2,y:y+fs*0.8},end:{x:x+tw+2,y:y+fs*0.8},thickness:fs*1.3,color:PDFLib.rgb(1,1,1)});
+                    }
                     pg.drawText(nt,{x,y:y+fs*0.15,size:fs,font,color:PDFLib.rgb(0,0,0)});
                 }
                 progressFill.style.width='90%';
