@@ -533,7 +533,7 @@
 
             // Position
             const leftX = Math.min(...line.items.map(i => i.x));
-            const totalWidth = line.reduce((max, item) => {
+            const totalWidth = line.items.reduce((max, item) => {
                 return Math.max(max, item.x + item.width);
             }, 0) - leftX;
 
