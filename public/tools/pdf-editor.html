@@ -281,6 +281,18 @@
                     <input type="number" id="fontSizeInput" value="12" min="6" max="72">
                 </div>
                 <div class="toolbar-group">
+                    <label>Bold:</label>
+                    <button class="btn btn-secondary" id="boldBtn" onclick="toggleBold()" style="min-width:36px;font-weight:bold;">B</button>
+                </div>
+                <div class="toolbar-group">
+                    <label>Italic:</label>
+                    <button class="btn btn-secondary" id="italicBtn" onclick="toggleItalic()" style="min-width:36px;font-style:italic;">I</button>
+                </div>
+                <div class="toolbar-group">
+                    <label>Underline:</label>
+                    <button class="btn btn-secondary" id="underlineBtn" onclick="toggleUnderline()" style="min-width:36px;text-decoration:underline;">U</button>
+                </div>
+                <div class="toolbar-group">
                     <label>Color:</label>
                     <input type="color" id="fontColor" value="#000000">
                 </div>
@@ -364,15 +376,38 @@
         fileInput.addEventListener('change', e => { if (e.target.files[0]) loadPDF(e.target.files[0]); });
 
         // Toolbar applies to focused element
+        const boldBtn = $('boldBtn');
+        const italicBtn = $('italicBtn');
+        const underlineBtn = $('underlineBtn');
+
         fontFamilySelect.addEventListener('change', () => {
             if (currentEditingEl) currentEditingEl.style.fontFamily = mapFontToWeb(fontFamilySelect.value);
         });
         fontSizeInput.addEventListener('change', () => {
             if (currentEditingEl) currentEditingEl.style.fontSize = (parseInt(fontSizeInput.value) * zoom) + 'px';
         });
-        fontColorInput.addEventListener('change', () => {
+        fontColorInput.addEventListener('input', () => {
             if (currentEditingEl) currentEditingEl.style.color = fontColorInput.value;
         });
+
+        function toggleBold() {
+            if (currentEditingEl) {
+                currentEditingEl.style.fontWeight = currentEditingEl.style.fontWeight === 'bold' ? 'normal' : 'bold';
+                boldBtn.style.background = currentEditingEl.style.fontWeight === 'bold' ? 'rgba(0,212,255,0.3)' : '';
+            }
+        }
+        function toggleItalic() {
+            if (currentEditingEl) {
+                currentEditingEl.style.fontStyle = currentEditingEl.style.fontStyle === 'italic' ? 'normal' : 'italic';
+                italicBtn.style.background = currentEditingEl.style.fontStyle === 'italic' ? 'rgba(0,212,255,0.3)' : '';
+            }
+        }
+        function toggleUnderline() {
+            if (currentEditingEl) {
+                currentEditingEl.style.textDecoration = currentEditingEl.style.textDecoration === 'underline' ? 'none' : 'underline';
+                underlineBtn.style.background = currentEditingEl.style.textDecoration === 'underline' ? 'rgba(0,212,255,0.3)' : '';
+            }
+        }
 
         // =========================================================
         // LOAD PDF: read once, build HTML from extracted elements
@@ -450,11 +485,19 @@
             // Extract text positions and draw white rectangles over them
             // This HIDES the original text so only our HTML spans show text
             const textContent = await page.getTextContent();
+
+            // EXTRACT STYLING FROM OPERATOR LIST (colors, fonts)
+            const ops = await page.getOperatorList();
+            const textStyles = extractTextStyles(ops);
+
             const ctx2 = bgCanvas.getContext('2d');
             ctx2.fillStyle = '#ffffff';
 
+            let styleIndex = 0;
             for (const item of textContent.items) {
+                styleIndex++;
                 if (!item.str || item.str.trim() === '') continue;
+
                 const tx = item.transform;
                 const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
                 const x = tx[4];
@@ -465,15 +508,22 @@
                 ctx2.fillRect(
                     x * zoom,
                     (y - fontSize) * zoom,
-                    w * zoom + 1,  // +1 for coverage
+                    w * zoom + 1,
                     fontSize * zoom * 1.3
                 );
+
+                // Attach styling from operator list
+                const style = textStyles.get(styleIndex) || {};
+                if (style) {
+                    item._color = style.color;
+                    item._fontName = style.fontName || item.fontName;
+                }
             }
 
             bgDiv.appendChild(bgCanvas);
             pageDiv.appendChild(bgDiv);
 
-            // --- Layer 2: Text (extracted and rebuilt as HTML) ---
+            // --- Layer 2: Text (extracted and rebuilt as HTML with styling) ---
             const textLayer = document.createElement('div');
             textLayer.className = 'page-text-layer';
 
@@ -490,6 +540,57 @@
 
             // Thumbnail (render full page for thumb)
             await createThumbnail(pageNum);
+        }
+
+        // =========================================================
+        // EXTRACT TEXT STYLES FROM OPERATOR LIST
+        // Trace through PDF drawing commands to get colors for each text segment
+        // =========================================================
+        function extractTextStyles(ops) {
+            const textStyles = new Map();
+            let currentColor = { r: 0, g: 0, b: 0 };
+            let currentFont = null;
+            let currentFontSize = 0;
+            let showTextCount = 0;
+
+            for (let i = 0; i < ops.fnArray.length; i++) {
+                const op = ops.fnArray[i];
+                const args = ops.argsArray[i];
+
+                // OPS 59 = setFillRGBColor (text fill color)
+                if (op === 59 && args && args.length >= 3) {
+                    currentColor = { r: args[0], g: args[1], b: args[2] };
+                }
+                // OPS 37 = setFont [fontName, fontSize]
+                if (op === 37 && args && args.length >= 2) {
+                    currentFont = args[0];
+                    currentFontSize = args[1];
+                }
+                // OPS 44 = showText, 45 = showSpacedText, 46 = nextLineShowText, 47 = nextLineSetSpacingShowText
+                if ((op === 44 || op === 45 || op === 46 || op === 47) && args) {
+                    showTextCount++;
+
+                    // Try to get text from args
+                    let hasText = false;
+                    if (args[0]) {
+                        const chars = Array.isArray(args[0]) ? args[0] : [args[0]];
+                        const text = chars.map(c => {
+                            if (typeof c === 'number') return '';
+                            return c.unicode || '';
+                        }).join('');
+                        if (text.trim()) hasText = true;
+                    }
+
+                    textStyles.set(showTextCount, {
+                        color: { ...currentColor },
+                        fontName: currentFont,
+                        fontSize: currentFontSize,
+                        hasText
+                    });
+                }
+            }
+
+            return textStyles;
         }
 
         // =========================================================
@@ -518,9 +619,10 @@
                     text: item.str,
                     x, y,
                     fontSize,
-                    fontName: item.fontName || 'Helvetica',
+                    fontName: item._fontName || item.fontName || 'Helvetica',
                     width: item.width || 0,
-                    height: fontSize
+                    height: fontSize,
+                    color: item._color
                 });
             }
 
@@ -561,9 +663,27 @@
             span.style.top = ((line.y - line.fontSize) * zoom) + 'px';
             span.style.fontSize = (line.fontSize * zoom) + 'px';
             span.style.fontFamily = mapFontToWeb(line.fontName);
-            span.style.fontWeight = line.fontName && line.fontName.toLowerCase().includes('bold') ? 'bold' : 'normal';
-            span.style.fontStyle = line.fontName && (line.fontName.toLowerCase().includes('italic') || line.fontName.toLowerCase().includes('oblique')) ? 'italic' : 'normal';
-            span.style.color = '#000000';
+            // FONT FAMILY
+            span.style.fontFamily = mapFontToWeb(line.fontName);
+
+            // BOLD: detect from font name
+            const isBold = line.fontName && (line.fontName.toLowerCase().includes('bold') || line.fontName.toLowerCase().includes('black'));
+            span.style.fontWeight = isBold ? 'bold' : 'normal';
+
+            // ITALIC: detect from font name
+            const isItalic = line.fontName && (line.fontName.toLowerCase().includes('italic') || line.fontName.toLowerCase().includes('oblique'));
+            span.style.fontStyle = isItalic ? 'italic' : 'normal';
+
+            // COLOR: from operator list
+            const firstItem = line.items.find(i => i.color);
+            if (firstItem && firstItem.color) {
+                const c = firstItem.color;
+                span.style.color = `rgb(${(c.r * 255).toFixed(0)}, ${(c.g * 255).toFixed(0)}, ${(c.b * 255).toFixed(0)})`;
+            } else {
+                span.style.color = '#000000';
+            }
+
+            // UNDERLINE: not directly extractable, but we can add toolbar toggle
             span.style.lineHeight = '1.15';
             span.style.whiteSpace = 'pre';
             span.style.minWidth = Math.max(totalWidth * zoom, 10) + 'px';
@@ -581,22 +701,47 @@
                 height: line.fontSize
             };
 
-            // Focus: update toolbar, highlight
+            // Focus: update toolbar to reflect current styling
             span.addEventListener('focus', () => {
                 currentEditingEl = span;
+
+                // Size
                 const sz = Math.round(parseInt(span.style.fontSize) / zoom);
                 fontSizeInput.value = sz;
-                fontColorInput.value = span.style.color || '#000000';
 
+                // Color: convert rgb to hex for color picker
+                const col = span.style.color;
+                if (col.startsWith('rgb')) {
+                    const match = col.match(/(\d+)/g);
+                    if (match) {
+                        const hex = '#' + match.slice(0, 3).map(v => {
+                            const h = parseInt(v).toString(16);
+                            return h.length === 1 ? '0' + h : h;
+                        }).join('');
+                        fontColorInput.value = hex;
+                    }
+                } else if (col) {
+                    fontColorInput.value = col;
+                }
+
+                // Font family
                 const fam = span.style.fontFamily;
                 const opts = Array.from(fontFamilySelect.options).map(o => o.value);
                 const match = opts.find(f => fam.includes(f));
                 if (match) fontFamilySelect.value = match;
+
+                // Bold/italic/underline buttons
+                boldBtn.style.background = span.style.fontWeight === 'bold' ? 'rgba(0,212,255,0.3)' : '';
+                italicBtn.style.background = span.style.fontStyle === 'italic' ? 'rgba(0,212,255,0.3)' : '';
+                underlineBtn.style.background = span.style.textDecoration === 'underline' ? 'rgba(0,212,255,0.3)' : '';
             });
 
-            // Blur: track changes
+            // Blur: track changes, clear toolbar state
             span.addEventListener('blur', () => {
                 currentEditingEl = null;
+                boldBtn.style.background = '';
+                italicBtn.style.background = '';
+                underlineBtn.style.background = '';
                 const newText = span.textContent;
                 const orig = span.dataset.originalText;
                 if (newText !== orig) {
