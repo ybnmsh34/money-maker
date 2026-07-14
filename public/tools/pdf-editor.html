@@ -440,13 +440,35 @@
             bgCanvas.width = viewport.width;
             bgCanvas.height = viewport.height;
 
-            // Render with ignoreText: true — backgrounds, images, drawings only
+            // Render full PDF to canvas (includes text)
             await page.render({
                 canvasContext: bgCanvas.getContext('2d'),
                 viewport: viewport,
-                intent: 'display',
-                ignoreText: true
+                intent: 'display'
             }).promise;
+
+            // Extract text positions and draw white rectangles over them
+            // This HIDES the original text so only our HTML spans show text
+            const textContent = await page.getTextContent();
+            const ctx2 = bgCanvas.getContext('2d');
+            ctx2.fillStyle = '#ffffff';
+
+            for (const item of textContent.items) {
+                if (!item.str || item.str.trim() === '') continue;
+                const tx = item.transform;
+                const fontSize = Math.sqrt(tx[0] * tx[0] + tx[1] * tx[1]);
+                const x = tx[4];
+                const y = viewport.height - tx[5];
+                const w = item.width || (item.str.length * fontSize * 0.5);
+
+                // Draw white rect over the text area
+                ctx2.fillRect(
+                    x * zoom,
+                    (y - fontSize) * zoom,
+                    w * zoom + 1,  // +1 for coverage
+                    fontSize * zoom * 1.3
+                );
+            }
 
             bgDiv.appendChild(bgCanvas);
             pageDiv.appendChild(bgDiv);
@@ -455,7 +477,6 @@
             const textLayer = document.createElement('div');
             textLayer.className = 'page-text-layer';
 
-            const textContent = await page.getTextContent();
             const lines = groupItemsByLine(textContent.items, viewport);
             pageData.push({ pageNum, lines, viewportWidth: viewport.width, viewportHeight: viewport.height });
 
