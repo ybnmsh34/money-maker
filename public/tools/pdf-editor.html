@@ -397,6 +397,51 @@
             sel.removeAllRanges(); sel.addRange(range);
         }
 
+        // ============================================================
+        // Shift spans down on a page; cascade overflow to new pages
+        // ============================================================
+        function shiftSpansDown(pageDiv,startY,shiftAmount,pageNum,excludeSpan){
+            const pageH=pageDiv.offsetHeight;
+            const spans=Array.from(pageDiv.querySelectorAll('.text-span'));
+            const toShift=spans.filter(s=>{
+                if(s===excludeSpan) return false;
+                const top=parseFloat(s.style.top);
+                const h=s._meta? s._meta.height*zoom : parseFloat(s.offsetHeight||s.style.fontSize);
+                return top+h>startY*zoom;
+            });
+            toShift.sort((a,b)=>parseFloat(a.style.top)-parseFloat(b.style.top));
+
+            const overflow=[];
+            for(const s of toShift){
+                const curTop=parseFloat(s.style.top);
+                const h=s._meta? s._meta.height*zoom : parseFloat(s.offsetHeight||s.style.fontSize);
+                const newTop=curTop+shiftAmount*zoom;
+                s.style.top=newTop+'px';
+                if(s._meta) s._meta.y+=shiftAmount;
+                // Check if pushed past bottom (with margin for readability)
+                if(newTop+h>pageH-10){
+                    overflow.push(s);
+                }
+            }
+            return overflow;
+        }
+
+        function moveSpansToNewPage(overflowSpans,pageDiv,pageNum){
+            const newPageNum=pageNum+1;
+            let targetPageDiv=pageDiv.nextElementSibling;
+            if(!targetPageDiv||!targetPageDiv.classList.contains('pdf-page')){
+                // Need to create a new page
+                const newPageNum2=allPages.length+1;
+                const newPageDiv=createNewPage(newPageNum2,pageDiv.offsetWidth,pageDiv.offsetHeight);
+                viewer.appendChild(newPageDiv);
+                setupDoubleClickOnPage(newPageDiv);
+                allPages.push({pageNum:newPageNum2,width:pageDiv.offsetWidth/zoom,height:pageDiv.offsetHeight/zoom,lines:[]});
+                createNewThumbnail(newPageNum2);
+                return {pageNum:newPageNum2,div:newPageDiv};
+            }
+            return {pageNum:parseInt(targetPageDiv.id.split('-')[2]),div:targetPageDiv};
+        }
+
         function splitSpanAtCursor(span,e){
             e.preventDefault();
             const offset=getCursorOffset(span);
@@ -405,7 +450,9 @@
             const after=fullText.substring(offset);
             const meta=span._meta;
             const pageDiv=span.parentElement;
-            const pageHeight=parseInt(pageDiv.style.height)||pageDiv.offsetHeight;
+            const pageH=pageDiv.offsetHeight;
+            const lineHeight=meta.height;
+            const newY=meta.y+lineHeight;
 
             // Update current span with text before cursor
             span.textContent=before;
@@ -413,38 +460,64 @@
             span.classList.add('changed');
             changes++; updateChangeCount();
 
-            // Check if new line would be near bottom of last page → add new page
-            const newY=meta.y+meta.height;
-            const isLastPage=meta.pageNum===allPages.length;
-            const spaceBelow=pageHeight-newY*zoom;
-            const nearBottom=spaceBelow<(meta.height*zoom*5);
+            // Shift ALL spans below this line down by one line height (exclude current span)
+            const overflow=shiftSpansDown(pageDiv,meta.y,lineHeight,meta.pageNum,span);
 
-            if(isLastPage && nearBottom){
-                // Create new page
-                const newPageNum=allPages.length+1;
-                const newPageDiv=createNewPage(newPageNum,pageDiv.offsetWidth,pageDiv.offsetHeight);
-                viewer.appendChild(newPageDiv);
-                setupDoubleClickOnPage(newPageDiv);
-                allPages.push({pageNum:newPageNum,width:pageDiv.offsetWidth/zoom,height:pageDiv.offsetHeight/zoom,lines:[]});
-                createNewThumbnail(newPageNum);
+            // Create new span at the split position
+            const newSpan=createNewSpan(meta.pageNum,meta.x,newY,lineHeight,after,meta.fontName);
+            newSpan.classList.add('changed');
+            changes++; updateChangeCount();
+            pageDiv.appendChild(newSpan);
 
-                // Create span on new page at top
-                const newSpan=createNewSpan(newPageNum,meta.x,20,meta.fontSize,after,meta.fontName);
-                newSpan.classList.add('changed');
-                changes++; updateChangeCount();
-                newPageDiv.appendChild(newSpan);
-                newSpan.focus();
-                setCursorOffset(newSpan,0);
-                newPageDiv.scrollIntoView({behavior:'smooth'});
-            } else {
-                // Create new span below with text after cursor
-                const newSpan=createNewSpan(meta.pageNum,meta.x,newY,meta.fontSize,after,meta.fontName);
-                newSpan.classList.add('changed');
-                changes++; updateChangeCount();
-                pageDiv.appendChild(newSpan);
-                newSpan.focus();
-                setCursorOffset(newSpan,0);
+            // Handle overflow - move ALL spans past bottom to new page(s)
+            const allOverflow=Array.from(pageDiv.querySelectorAll('.text-span')).filter(s=>{
+                const top=parseFloat(s.style.top);
+                const h=s._meta? s._meta.height*zoom : parseFloat(s.offsetHeight||s.style.fontSize);
+                return top+h>pageH-10;
+            });
+            if(allOverflow.length>0){
+                // Create a new page for overflow content
+                const nextPageNum=allPages.length+1;
+                const nextPageDiv=createNewPage(nextPageNum,pageDiv.offsetWidth,pageDiv.offsetHeight);
+                viewer.appendChild(nextPageDiv);
+                setupDoubleClickOnPage(nextPageDiv);
+                allPages.push({pageNum:nextPageNum,width:pageDiv.offsetWidth/zoom,height:pageDiv.offsetHeight/zoom,lines:[]});
+                createNewThumbnail(nextPageNum);
+
+                let currentDiv=nextPageDiv;
+                let currentPageNum=nextPageNum;
+                const topOffset=20;
+                const maxYPx=currentDiv.offsetHeight-10; // Bottom margin in pixels
+                let curY=topOffset;
+
+                for(const os of allOverflow){
+                    const spanHeight=os._meta? os._meta.height : lineHeight;
+                    const spanHeightPx=spanHeight*zoom;
+                    // Check if current page has room (compare in pixels)
+                    if(curY+spanHeight>maxYPx/zoom){
+                        // Create another new page
+                        const nn=allPages.length+1;
+                        const nd=createNewPage(nn,currentDiv.offsetWidth,currentDiv.offsetHeight);
+                        viewer.appendChild(nd);
+                        setupDoubleClickOnPage(nd);
+                        allPages.push({pageNum:nn,width:currentDiv.offsetWidth/zoom,height:currentDiv.offsetHeight/zoom,lines:[]});
+                        createNewThumbnail(nn);
+                        currentDiv=nd;
+                        currentPageNum=nn;
+                        curY=topOffset;
+                    }
+
+                    // Move span to the new page
+                    os.style.top=(curY*zoom)+'px';
+                    if(os._meta){ os._meta.y=curY; os._meta.pageNum=currentPageNum; }
+                    os.dataset.page=currentPageNum;
+                    currentDiv.appendChild(os);
+                    curY+=spanHeight;
+                }
             }
+
+            newSpan.focus();
+            setCursorOffset(newSpan,0);
         }
 
         function createNewSpan(pageNum,x,y,fontSize,text,fontName){
