@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code Generator - Create QR Codes Online for Free | FileTools</title>
+    <meta name="description" content="Generate QR codes for URLs, text, email, WiFi, phone numbers. Download as PNG or SVG.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>QR Code Generator</h1>
+            <p>Create QR codes for URLs, text, WiFi, email, phone numbers and more</p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+            <div>
+                <div class="tool-options" style="display:block;">
+                    <div class="option-group">
+                        <label>Type</label>
+                        <select id="qrType">
+                            <option value="url">URL / Website</option>
+                            <option value="text">Plain Text</option>
+                            <option value="email">Email</option>
+                            <option value="phone">Phone Number</option>
+                            <option value="wifi">WiFi</option>
+                            <option value="sms">SMS</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group" id="inputGroup">
+                        <label>Content</label>
+                        <input type="text" id="qrInput" placeholder="https://example.com" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;font-family:inherit;">
+                    </div>
+
+                    <div class="option-group" id="emailFields" style="display:none;">
+                        <label>Email Address</label>
+                        <input type="email" id="emailInput" placeholder="email@example.com" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+                        <label>Subject</label>
+                        <input type="text" id="emailSubject" placeholder="Subject" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+                        <label>Message</label>
+                        <textarea id="emailBody" placeholder="Message" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;font-family:inherit;min-height:80px;"></textarea>
+                    </div>
+
+                    <div class="option-group" id="wifiFields" style="display:none;">
+                        <label>Network Name (SSID)</label>
+                        <input type="text" id="wifiSsid" placeholder="WiFi Network Name" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+                        <label>Password</label>
+                        <input type="text" id="wifiPass" placeholder="Password" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;margin-bottom:8px;">
+                        <label>Encryption</label>
+                        <select id="wifiEnc" style="width:100%;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:0.9rem;">
+                            <option value="WPA">WPA/WPA2</option>
+                            <option value="WEP">WEP</option>
+                            <option value="">None</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label>Size</label>
+                        <select id="qrSize">
+                            <option value="200">Small (200×200)</option>
+                            <option value="400" selected>Medium (400×400)</option>
+                            <option value="800">Large (800×800)</option>
+                            <option value="1024">Extra Large (1024×1024)</option>
+                        </select>
+                    </div>
+
+                    <div class="option-group">
+                        <label>Color</label>
+                        <div style="display:flex;gap:12px;">
+                            <div>
+                                <label style="font-size:0.75rem;">Foreground</label>
+                                <input type="color" id="qrColor" value="#000000" style="width:60px;height:40px;border:none;cursor:pointer;">
+                            </div>
+                            <div>
+                                <label style="font-size:0.75rem;">Background</label>
+                                <input type="color" id="qrBg" value="#ffffff" style="width:60px;height:40px;border:none;cursor:pointer;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-primary" onclick="generateQR()" style="width:100%;">Generate QR Code</button>
+                </div>
+            </div>
+
+            <div style="display:flex;align-items:center;justify-content:center;">
+                <div id="qrPreview" style="text-align:center;">
+                    <div style="padding:60px;border:2px dashed var(--border-color);border-radius:12px;background:var(--bg-secondary);">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="margin-bottom:16px;color:var(--text-secondary);"><rect x="3" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" stroke="currentColor" stroke-width="2"/><rect x="17" y="17" width="4" height="4" fill="currentColor"/></svg>
+                        <p style="color:var(--text-secondary);">Your QR code will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="result-area" id="resultArea" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>QR Code Generated!</h3>
+            <div class="result-buttons">
+                <button class="btn btn-primary" onclick="downloadQR('png')">⬇ Download PNG</button>
+                <button class="btn btn-secondary" onclick="downloadQR('svg')">⬇ Download SVG</button>
+            </div>
+        </div>
+
+        <div style="margin-top:40px;padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;">
+            <h3 style="margin-bottom:16px;">What can you create QR codes for?</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;">
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">🔗 URLs</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📝 Text</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📧 Email</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📱 Phone</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📶 WiFi</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">💬 SMS</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📍 Location</div>
+                <div style="padding:8px 12px;background:var(--bg-secondary);border-radius:6px;font-size:0.875rem;text-align:center;">📅 Calendar</div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+    <script src="../js/tool-common.js"></script>
+    <script>
+        const qrType = document.getElementById('qrType');
+        const inputGroup = document.getElementById('inputGroup');
+        const emailFields = document.getElementById('emailFields');
+        const wifiFields = document.getElementById('wifiFields');
+        const qrInput = document.getElementById('qrInput');
+
+        qrType.addEventListener('change', () => {
+            inputGroup.style.display = 'none';
+            emailFields.style.display = 'none';
+            wifiFields.style.display = 'none';
+
+            switch(qrType.value) {
+                case 'url':
+                case 'text':
+                case 'phone':
+                case 'sms':
+                    inputGroup.style.display = 'block';
+                    break;
+                case 'email':
+                    emailFields.style.display = 'block';
+                    break;
+                case 'wifi':
+                    wifiFields.style.display = 'block';
+                    break;
+            }
+        });
+
+        function getContent() {
+            const type = qrType.value;
+            switch(type) {
+                case 'url':
+                    return qrInput.value;
+                case 'text':
+                    return qrInput.value;
+                case 'phone':
+                    return `tel:${qrInput.value}`;
+                case 'sms':
+                    return `sms:${qrInput.value}`;
+                case 'email':
+                    const email = document.getElementById('emailInput').value;
+                    const subject = document.getElementById('emailSubject').value;
+                    const body = document.getElementById('emailBody').value;
+                    return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                case 'wifi':
+                    const ssid = document.getElementById('wifiSsid').value;
+                    const pass = document.getElementById('wifiPass').value;
+                    const enc = document.getElementById('wifiEnc').value;
+                    return `WIFI:T:${enc};S:${ssid};P:${pass};;`;
+                default:
+                    return qrInput.value;
+            }
+        }
+
+        function generateQR() {
+            const content = getContent();
+            if (!content || !content.trim()) {
+                alert('Please enter content for the QR code');
+                return;
+            }
+
+            const size = parseInt(document.getElementById('qrSize').value);
+            const color = document.getElementById('qrColor').value;
+            const bg = document.getElementById('qrBg').value;
+
+            // Generate QR code
+            const typeNumber = 0; // Auto
+            const errorCorrectionLevel = 'M';
+            const qr = qrcode(typeNumber, errorCorrectionLevel);
+            qr.addData(content);
+            qr.make();
+
+            const moduleCount = qr.getModuleCount();
+            const cellSize = size / moduleCount;
+
+            // Render to canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Background
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, size, size);
+
+            // QR modules
+            ctx.fillStyle = color;
+            for (let row = 0; row < moduleCount; row++) {
+                for (let col = 0; col < moduleCount; col++) {
+                    if (qr.isDark(row, col)) {
+                        ctx.fillRect(
+                            Math.round(col * cellSize),
+                            Math.round(row * cellSize),
+                            Math.round(cellSize),
+                            Math.round(cellSize)
+                        );
+                    }
+                }
+            }
+
+            // Display
+            const preview = document.getElementById('qrPreview');
+            const dataUrl = canvas.toDataURL('image/png');
+            preview.innerHTML = `
+                <img src="${dataUrl}" style="max-width:400px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                <canvas id="qrCanvas" width="${size}" height="${size}" style="display:none;"></canvas>
+            `;
+            preview.querySelector('#qrCanvas').getContext('2d').drawImage(canvas, 0, 0);
+
+            document.getElementById('resultArea').style.display = 'block';
+            window.qrCanvas = canvas;
+            window.qrContent = content;
+        }
+
+        function downloadQR(format) {
+            const canvas = window.qrCanvas;
+            if (!canvas) return;
+
+            if (format === 'png') {
+                const link = document.createElement('a');
+                link.download = 'qrcode.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            } else {
+                // Generate SVG
+                const size = canvas.width;
+                const ctx = canvas.getContext('2d');
+                const imageData = ctx.getImageData(0, 0, size, size);
+                const moduleCount = 33;
+                const cellSize = size / moduleCount;
+
+                let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${moduleCount} ${moduleCount}">`;
+                svg += `<rect width="${moduleCount}" height="${moduleCount}" fill="${document.getElementById('qrBg').value}"/>`;
+                svg += `<g fill="${document.getElementById('qrColor').value}">`;
+                
+                for (let y = 0; y < size; y++) {
+                    for (let x = 0; x < size; x++) {
+                        const i = (y * size + x) * 4;
+                        if (imageData.data[i] < 128) {
+                            const col = Math.floor(x / cellSize);
+                            const row = Math.floor(y / cellSize);
+                            svg += `<rect x="${col}" y="${row}" width="1" height="1"/>`;
+                        }
+                    }
+                }
+                svg += '</g></svg>';
+
+                const blob = new Blob([svg], { type: 'image/svg+xml' });
+                downloadBlob(blob, 'qrcode.svg');
+            }
+        }
+    </script>
+</body>
+</html>

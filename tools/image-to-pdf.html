@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image to PDF - Convert Images to PDF Online | FileTools</title>
+    <meta name="description" content="Convert images to PDF. Combine multiple images into a single PDF. Free and fast.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>Image to PDF</h1>
+            <p>Convert one or more images into a PDF document.</p>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Drop images here or click to select</h3>
+            <p>PNG, JPG, WebP, GIF, BMP</p>
+            <input type="file" id="fileInput" multiple accept="image/*" hidden>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div class="tool-options" id="options" style="display:none;">
+            <div class="option-group">
+                <label>Page Size</label>
+                <select id="pageSize">
+                    <option value="a4">A4 (210×297mm)</option>
+                    <option value="letter">Letter (8.5×11in)</option>
+                    <option value="fit">Fit to Image</option>
+                </select>
+            </div>
+            <div class="option-group">
+                <label>Orientation</label>
+                <select id="orientation">
+                    <option value="auto">Auto</option>
+                    <option value="portrait">Portrait</option>
+                    <option value="landscape">Landscape</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:12px;margin-top:20px;">
+                <button class="btn btn-primary" onclick="convertToPDF()">Convert to PDF</button>
+                <button class="btn btn-secondary" onclick="clearFiles()">Clear</button>
+            </div>
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display:none;">
+            <div class="progress" id="progress" style="width:0%"></div>
+        </div>
+
+        <div class="result-area" id="resultArea" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Conversion Complete!</h3>
+            <p id="resultText"></p>
+            <div class="result-buttons">
+                <button class="btn btn-primary" onclick="downloadResult()">⬇ Download PDF</button>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="../js/tool-common.js"></script>
+    <script>
+        let files = [];
+        let resultBlob = null;
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const options = document.getElementById('options');
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            const newFiles = Array.from(e.target.files).filter(f => f.type.startsWith('image/'));
+            files = [...files, ...newFiles];
+            renderFileList();
+            options.style.display = files.length > 0 ? 'block' : 'none';
+        });
+        setupDragDrop(uploadZone, (fl) => {
+            const newFiles = Array.from(fl).filter(f => f.type.startsWith('image/'));
+            files = [...files, ...newFiles];
+            renderFileList();
+            options.style.display = files.length > 0 ? 'block' : 'none';
+        });
+
+        function renderFileList() {
+            fileList.innerHTML = files.map((f, i) => `
+                <div class="file-item">
+                    <span class="file-name">${f.name}</span>
+                    <span class="file-size">${formatBytes(f.size)}</span>
+                    <span class="file-remove" onclick="removeFile(${i})">×</span>
+                </div>
+            `).join('');
+        }
+
+        function removeFile(index) {
+            files.splice(index, 1);
+            renderFileList();
+            options.style.display = files.length > 0 ? 'block' : 'none';
+        }
+
+        function clearFiles() {
+            files = [];
+            renderFileList();
+            options.style.display = 'none';
+            document.getElementById('resultArea').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+        }
+
+        async function convertToPDF() {
+            if (files.length === 0) return;
+
+            const progressBar = document.getElementById('progressBar');
+            const progress = document.getElementById('progress');
+            const resultArea = document.getElementById('resultArea');
+
+            progressBar.style.display = 'block';
+            resultArea.style.display = 'none';
+
+            try {
+                const { PDFDocument } = PDFLib;
+                const pdfDoc = await PDFDocument.create();
+
+                for (let i = 0; i < files.length; i++) {
+                    progress.style.width = `${(i / files.length) * 100}%`;
+                    
+                    const arrayBuffer = await files[i].arrayBuffer();
+                    let image;
+                    
+                    if (files[i].type === 'image/png') {
+                        image = await pdfDoc.embedPng(arrayBuffer);
+                    } else if (files[i].type === 'image/jpeg' || files[i].type === 'image/jpg') {
+                        image = await pdfDoc.embedJpg(arrayBuffer);
+                    } else {
+                        // Convert other formats to JPEG via canvas
+                        const img = await loadImage(`data:${files[i].type};base64,${btoa(new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), ''))}`);
+                        const canvas = imageToCanvas(img);
+                        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                        const jpegBuffer = Uint8Array.from(atob(jpegDataUrl.split(',')[1]), c => c.charCodeAt(0));
+                        image = await pdfDoc.embedJpg(jpegBuffer);
+                    }
+
+                    const { width, height } = image.scale(1);
+                    const page = pdfDoc.addPage([width, height]);
+                    page.drawImage(image, {
+                        x: 0,
+                        y: 0,
+                        width,
+                        height,
+                    });
+                }
+
+                progress.style.width = '100%';
+                const pdfBytes = await pdfDoc.save();
+                resultBlob = new Blob([pdfBytes], { type: 'application/pdf' });
+
+                progressBar.style.display = 'none';
+                resultArea.style.display = 'block';
+                document.getElementById('resultText').textContent = 
+                    `${files.length} image(s) → PDF (${formatBytes(resultBlob.size)})`;
+            } catch (err) {
+                console.error('Conversion failed:', err);
+                alert('Conversion failed. Please try different images.');
+                progressBar.style.display = 'none';
+            }
+        }
+
+        function downloadResult() {
+            if (resultBlob) {
+                downloadBlob(resultBlob, 'images.pdf');
+            }
+        }
+    </script>
+</body>
+</html>

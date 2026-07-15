@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Word - Convert PDF to DOCX | FileTools</title>
+    <meta name="description" content="Convert PDF to editable Word documents. Free, fast, private.">
+    <link rel="stylesheet" href="../css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanline"></div>
+    <nav class="navbar">
+        <div class="container nav-content">
+            <a href="../index.html" class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                    <rect width="32" height="32" rx="8" fill="url(#toolLogoGrad)"/><defs><linearGradient id="toolLogoGrad" x1="0" y1="0" x2="32" y2="32"><stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#8b5cf6"/></linearGradient></defs>
+                    <path d="M8 16L14 22L24 10" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span>FileTools</span>
+            </a>
+            <div class="nav-links">
+                <a href="../index.html#pdf-tools" class="nav-link">PDF Tools</a>
+                <a href="../index.html#image-tools" class="nav-link">Image Tools</a>
+                <a href="../index.html#document-tools" class="nav-link">Documents</a>
+                <a href="../index.html#file-converter" class="nav-link">Converter</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container tool-page">
+        <div class="tool-header">
+            <a href="../index.html" class="back-link">← Back to all tools</a>
+            <h1>PDF to Word</h1>
+            <p>Convert PDF documents to editable Word files.</p>
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" stroke="currentColor" stroke-width="2"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="2"/></svg>
+            <h3>Drop PDF file here or click to select</h3>
+            <input type="file" id="fileInput" accept="application/pdf" hidden>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <div class="tool-options" id="options" style="display:none;">
+            <div style="display:flex;gap:12px;">
+                <button class="btn btn-primary" onclick="convertToWord()">Convert to Word</button>
+                <button class="btn btn-secondary" onclick="clearFile()">Clear</button>
+            </div>
+        </div>
+
+        <div class="progress-bar" id="progressBar" style="display:none;">
+            <div class="progress" id="progress" style="width:0%"></div>
+        </div>
+
+        <div class="result-area" id="resultArea" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M22 11.08V12a10 10 0 11-5.93-9.14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M22 4L12 14.01l-3-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <h3>Conversion Complete!</h3>
+            <p id="resultText"></p>
+            <div class="result-buttons">
+                <button class="btn btn-primary" onclick="downloadResult()">⬇ Download Word Document</button>
+            </div>
+        </div>
+
+        <div style="margin-top:40px;padding:24px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;">
+            <h3 style="margin-bottom:16px;">What you get</h3>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:16px;">
+                <div style="padding:16px;background:var(--bg-secondary);border-radius:8px;">
+                    <div style="font-weight:600;margin-bottom:8px;">📄 Editable Text</div>
+                    <div style="color:var(--text-secondary);font-size:0.875rem;">Extract all text from your PDF into editable Word format.</div>
+                </div>
+                <div style="padding:16px;background:var(--bg-secondary);border-radius:8px;">
+                    <div style="font-weight:600;margin-bottom:8px;">📊 Preserved Layout</div>
+                    <div style="color:var(--text-secondary);font-size:0.875rem;">Maintains paragraphs, headings, and basic formatting.</div>
+                </div>
+                <div style="padding:16px;background:var(--bg-secondary);border-radius:8px;">
+                    <div style="font-weight:600;margin-bottom:8px;">🔒 Private</div>
+                    <div style="color:var(--text-secondary);font-size:0.875rem;">All processing happens in your browser. Files never uploaded.</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://unpkg.com/reamkit@0.1.4/dist/index.js"></script>
+    <script src="../js/tool-common.js"></script>
+    <script>
+        let currentFile = null;
+        let resultBlob = null;
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const options = document.getElementById('options');
+
+        uploadZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                currentFile = e.target.files[0];
+                fileList.innerHTML = `<div class="file-item"><span class="file-name">${currentFile.name}</span><span class="file-size">${formatBytes(currentFile.size)}</span><span class="file-remove" onclick="clearFile()">×</span></div>`;
+                options.style.display = 'block';
+            }
+        });
+        setupDragDrop(uploadZone, (fl) => {
+            if (fl.length > 0) {
+                currentFile = fl[0];
+                fileList.innerHTML = `<div class="file-item"><span class="file-name">${currentFile.name}</span><span class="file-size">${formatBytes(currentFile.size)}</span><span class="file-remove" onclick="clearFile()">×</span></div>`;
+                options.style.display = 'block';
+            }
+        });
+
+        function clearFile() {
+            currentFile = null;
+            fileList.innerHTML = '';
+            options.style.display = 'none';
+            document.getElementById('resultArea').style.display = 'none';
+            document.getElementById('progressBar').style.display = 'none';
+        }
+
+        async function convertToWord() {
+            if (!currentFile) return;
+
+            const progressBar = document.getElementById('progressBar');
+            const progress = document.getElementById('progress');
+            const resultArea = document.getElementById('resultArea');
+
+            progressBar.style.display = 'block';
+            resultArea.style.display = 'none';
+            progress.style.width = '20%';
+
+            try {
+                const arrayBuffer = await currentFile.arrayBuffer();
+                const bytes = new Uint8Array(arrayBuffer);
+                
+                progress.style.width = '40%';
+                
+                // Use reamkit for high-quality PDF to DOCX conversion
+                // This preserves layout, formatting, tables, and structure
+                const doc = Ream.parse(bytes);
+                progress.style.width = '60%';
+                
+                // Convert to DOCX with preserved formatting
+                const docxBytes = await doc.convert('docx');
+                resultBlob = new Blob([docxBytes], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+                
+                progress.style.width = '100%';
+                progressBar.style.display = 'none';
+                resultArea.style.display = 'block';
+                document.getElementById('resultText').textContent = `Converted to Word with preserved formatting (${formatBytes(resultBlob.size)})`;
+            } catch (err) {
+                console.error('Conversion failed:', err);
+                alert('Conversion failed. Please try a different PDF.');
+                progressBar.style.display = 'none';
+            }
+        }
+
+        function downloadResult() {
+            if (resultBlob) {
+                const baseName = getFileNameWithoutExt(currentFile.name);
+                downloadBlob(resultBlob, `${baseName}.docx`);
+            }
+        }
+    </script>
+</body>
+</html>
