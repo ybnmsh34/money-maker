@@ -104,14 +104,14 @@
             <div class="editor-toolbar">
                 <div class="toolbar-group"><label>Font:</label><select id="fontFamily"><option value="helvetica">Sans-Serif</option><option value="serif">Serif</option><option value="monospace">Monospace</option></select></div>
                 <div class="toolbar-group"><label>Size:</label><input type="number" id="fontSizeInput" value="12" min="6" max="72"></div>
-                <div class="toolbar-group"><label>Bold:</label><button class="btn btn-secondary" id="boldBtn" onclick="toggleBold()" style="min-width:36px;font-weight:bold;">B</button></div>
-                <div class="toolbar-group"><label>Italic:</label><button class="btn btn-secondary" id="italicBtn" onclick="toggleItalic()" style="min-width:36px;font-style:italic;">I</button></div>
-                <div class="toolbar-group"><label>Underline:</label><button class="btn btn-secondary" id="underlineBtn" onclick="toggleUnderline()" style="min-width:36px;text-decoration:underline;">U</button></div>
+                <div class="toolbar-group"><label>Bold:</label><button class="btn btn-secondary" id="boldBtn" onclick="toggleBold()" onmousedown="event.preventDefault()" style="min-width:36px;font-weight:bold;">B</button></div>
+                <div class="toolbar-group"><label>Italic:</label><button class="btn btn-secondary" id="italicBtn" onclick="toggleItalic()" onmousedown="event.preventDefault()" style="min-width:36px;font-style:italic;">I</button></div>
+                <div class="toolbar-group"><label>Underline:</label><button class="btn btn-secondary" id="underlineBtn" onclick="toggleUnderline()" onmousedown="event.preventDefault()" style="min-width:36px;text-decoration:underline;">U</button></div>
                 <div class="toolbar-group"><label>Color:</label><input type="color" id="fontColor" value="#000000"></div>
                 <div class="toolbar-group"><label>Dir:</label><select id="dirToggle"><option value="ltr">LTR</option><option value="rtl">RTL</option></select></div>
-                <div class="toolbar-group"><label>Zoom:</label><div class="zoom-controls"><button onclick="changeZoom(-0.1)">-</button><span id="zoomLevel" class="page-indicator">100%</span><button onclick="changeZoom(0.1)">+</button></div></div>
+                <div class="toolbar-group"><label>Zoom:</label><div class="zoom-controls"><button onclick="changeZoom(-0.1)" onmousedown="event.preventDefault()">-</button><span id="zoomLevel" class="page-indicator">100%</span><button onclick="changeZoom(0.1)" onmousedown="event.preventDefault()">+</button></div></div>
                 <div class="toolbar-group"><span id="changeCount" class="page-indicator">0 changes</span></div>
-                <div class="toolbar-group"><button class="btn" onclick="exportPDF()">Save PDF</button><button class="btn btn-secondary" onclick="resetEditor()">New File</button></div>
+                <div class="toolbar-group"><button class="btn" onclick="exportPDF()" onmousedown="event.preventDefault()">Save PDF</button><button class="btn btn-secondary" onclick="resetEditor()" onmousedown="event.preventDefault()">New File</button></div>
             </div>
             <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
             <div class="pages-panel" id="pagesPanel"></div>
@@ -132,9 +132,9 @@
         let documentDir = 'ltr'; // dominant direction computed at parse time
 
         // ---- Boundary constants (PDF points, unscaled) ----
-        const EDGE_PAD = 4;
+        const EDGE_PAD = 72;      // 1-inch margins (Word / Google Docs standard)
         const MIN_SPAN_WIDTH = 40;
-        const BOTTOM_PAD = 10;
+        const BOTTOM_PAD = 72;    // 1-inch bottom margin to match
 
         // ---- Phase 1: boundary source of truth ----
         // Returns {width, height} in unscaled PDF points for a given 1-based page number.
@@ -302,8 +302,8 @@
                 updateChangeCount();
             }
 
-            // Create continuation span one line-height below
-            const newY = meta.y + meta.height;
+            // Create continuation span one line-height below (Phase 4: use PDF-derived leading)
+            const newY = meta.y + (meta.leading || meta.height);
             let contX;
             if (meta.dir === 'rtl') {
                 // RTL continuation: same anchorRight as parent
@@ -314,7 +314,7 @@
                 contX = meta.x;
             }
 
-            const contSpan = createNewSpan(meta.pageNum, contX, newY, meta.fontSize, after, meta.fontName, meta.dir);
+            const contSpan = createNewSpan(meta.pageNum, contX, newY, meta.fontSize, after, meta.fontName, meta.dir, meta.leading, {isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color});
             // Phase 4: clamp continuation span
             clampSpanPosition(contSpan._meta, meta.pageNum);
             positionSpan(contSpan, contSpan._meta);
@@ -323,8 +323,8 @@
             updateChangeCount();
             pageDiv.appendChild(contSpan);
 
-            // Shift spans below
-            shiftSpansDown(pageDiv, meta.y, meta.height, meta.pageNum, span);
+            // Shift spans below (Phase 4: use PDF-derived leading)
+            shiftSpansDown(pageDiv, meta.y, meta.leading || meta.height, meta.pageNum, span);
 
             // Handle bottom overflow (cascade to new pages)
             const allOverflow = Array.from(pageDiv.querySelectorAll('.text-span')).filter(s => {
@@ -376,7 +376,7 @@
             const bounds = getPageBounds(pageNum);
             const pw = bounds.width;
             const ph = bounds.height;
-            const lh = meta.height || 12;
+            const lh = (meta.leading || meta.height) || 12;  // Phase 4: use leading for vertical clamping
 
             if (meta.dir === 'rtl') {
                 // RTL: clamp anchorRight into [MIN_SPAN_WIDTH, pageWidth - EDGE_PAD]
@@ -441,9 +441,28 @@
         uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
         uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f&&f.type==='application/pdf') loadPDF(f); else alert('Please upload a valid PDF file'); });
         fileInput.addEventListener('change', e => { if(e.target.files[0]) loadPDF(e.target.files[0]); });
-        fontFamilySelect.addEventListener('change', () => { if(currentEditingEl) currentEditingEl.style.fontFamily = mapFontType(fontFamilySelect.value); });
-        fontSizeInput.addEventListener('change', () => { if(currentEditingEl) currentEditingEl.style.fontSize = (parseInt(fontSizeInput.value)*zoom)+'px'; });
-        fontColorInput.addEventListener('input', () => { if(currentEditingEl) currentEditingEl.style.color = fontColorInput.value; });
+        // ---- Phase 2 fix: toolbar focus preservation ----
+        // Buttons use onmousedown="event.preventDefault()" to prevent focus steal.
+        // Inputs/selects need to actually receive focus, so we save/restore currentEditingEl.
+        function applyToolbarChange(handler){
+            const savedEl = currentEditingEl;
+            handler();
+            // Restore reference in case blur cleared it
+            if(savedEl && !currentEditingEl) currentEditingEl = savedEl;
+        }
+        fontFamilySelect.addEventListener('change', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.fontFamily = mapFontType(fontFamilySelect.value); }); });
+        fontSizeInput.addEventListener('change', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.fontSize = (parseInt(fontSizeInput.value)*zoom)+'px'; }); });
+        fontColorInput.addEventListener('input', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.color = fontColorInput.value; }); });
+        // Dir toggle: apply direction to current span
+        $('dirToggle').addEventListener('change', function(){
+            applyToolbarChange(() => {
+                if(currentEditingEl && currentEditingEl._meta){
+                    currentEditingEl._meta.dir = this.value;
+                    currentEditingEl.setAttribute('dir', this.value);
+                    positionSpan(currentEditingEl, currentEditingEl._meta);
+                }
+            });
+        });
         function toggleBold(){ if(!currentEditingEl)return; currentEditingEl.style.fontWeight=currentEditingEl.style.fontWeight==='bold'?'normal':'bold'; boldBtn.style.background=currentEditingEl.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':''; }
         function toggleItalic(){ if(!currentEditingEl)return; currentEditingEl.style.fontStyle=currentEditingEl.style.fontStyle==='italic'?'normal':'italic'; italicBtn.style.background=currentEditingEl.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':''; }
         function toggleUnderline(){ if(!currentEditingEl)return; currentEditingEl.style.textDecoration=currentEditingEl.style.textDecoration==='underline'?'none':'underline'; underlineBtn.style.background=currentEditingEl.style.textDecoration==='underline'?'rgba(0,212,255,0.3)':''; }
@@ -556,6 +575,16 @@
             for(const l of lines) l.items.sort((a,b)=>a.x-b.x);
             lines.sort((a,b)=>a.y-b.y);
             for(const l of lines) l.hasUnderline=underlines.some(u=>Math.abs(u.y-l.y)<5);
+            // Phase 4: compute per-line leading from PDF inter-line gaps
+            for(let i=0;i<lines.length;i++){
+                if(i+1<lines.length){
+                    const gap=lines[i+1].y-lines[i].y;
+                    // Only use gap if it's >= fontSize (not same line split)
+                    lines[i].leading=(gap>=lines[i].fontSize)?gap:(lines[i].fontSize*1.2);
+                } else {
+                    lines[i].leading=lines[i].fontSize*1.2; // last line: default
+                }
+            }
             return lines;
         }
 
@@ -613,7 +642,7 @@
             span.setAttribute('dir', dir);
 
             // Metadata for export (with direction)
-            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,isBold,isItalic,hasUnderline:line.hasUnderline,dir:dir};
+            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,leading:line.leading||line.fontSize*1.2,isBold,isItalic,hasUnderline:line.hasUnderline,dir:dir};
 
             // Position with direction awareness
             positionSpan(span, span._meta);
@@ -629,8 +658,9 @@
             const col=line.items[0].color;
             span.style.color='rgb('+Math.round(col.r*255)+','+Math.round(col.g*255)+','+Math.round(col.b*255)+')';
 
-            // Other styles
-            span.style.lineHeight='1.15';
+            // Other styles (Phase 4: derive lineHeight from PDF leading)
+            const leadingRatio = (line.leading || line.fontSize * 1.2) / line.fontSize;
+            span.style.lineHeight = leadingRatio.toFixed(2);
             span.style.whiteSpace='pre';
             span.style.minWidth=Math.max(tw*zoom,10)+'px';
             span.style.padding='0'; span.style.margin='0';
@@ -669,7 +699,7 @@
                 const nt=span.textContent, orig=span.dataset.originalText;
                 if(nt!==orig){span.dataset.originalText=nt; span.classList.add('changed'); changes++; updateChangeCount();}
             });
-            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e);});
+            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e); if(e.key==='Backspace') handleBackspace(span,e);});
             // Phase 3: directional overflow wrapping
             span.addEventListener('input', function(){
                 handleOverflowWrap(span);
@@ -698,7 +728,7 @@
                 // For RTL: x = pageWidth - EDGE_PAD (anchorRight at right margin, width=0)
                 // For LTR: x = click position
                 const spanX = (dir === 'rtl') ? (bounds.width - EDGE_PAD) : x;
-                const newSpan=createNewSpan(pageNum,spanX,y,12,'',null,dir);
+                const newSpan=createNewSpan(pageNum,spanX,y,12,'',null,dir,12*1.2,null); // null style = defaults for empty-area creation
                 // Phase 4: clamp span creation
                 clampSpanPosition(newSpan._meta, pageNum);
                 positionSpan(newSpan, newSpan._meta);
@@ -789,6 +819,58 @@
             return {pageNum:parseInt(targetPageDiv.id.split('-')[2]),div:targetPageDiv};
         }
 
+        // ---- Phase 3: Backspace merge (Word-like behavior) ----
+        function handleBackspace(span,e){
+            if(getCursorOffset(span)===0){
+                const pageDiv=span.closest('.pdf-page');
+                const spans=Array.from(pageDiv.querySelectorAll('.text-span'));
+                // Sort spans by document reading order (y first, then x)
+                spans.sort((a,b)=>{
+                    const ya=a._meta.y, yb=b._meta.y;
+                    const threshold=Math.max(a._meta.height,b._meta.height)*0.5;
+                    if(Math.abs(ya-yb)<=threshold){
+                        // Same line: LTR sorts by x ascending, RTL by x descending
+                        if(a._meta.dir==='rtl'||b._meta.dir==='rtl') return (a._meta.x+a._meta.width)-(b._meta.x+b._meta.width);
+                        return a._meta.x-b._meta.x;
+                    }
+                    return ya-yb;
+                });
+                const idx=spans.indexOf(span);
+                if(idx>0){
+                    e.preventDefault();
+                    const prev=spans[idx-1];
+                    const prevText=prev.textContent||'';
+                    const currText=span.textContent||'';
+                    // Append current span text to previous span
+                    prev.textContent=prevText+currText;
+                    prev.dataset.originalText=prev.textContent;
+                    prev.classList.add('changed');
+                    // Remove current span
+                    span.remove();
+                    changes++; updateChangeCount();
+                    // Place cursor at merge point in previous span
+                    prev.focus();
+                    setCursorOffset(prev,prevText.length);
+                }
+            } else if(span.textContent.length===0){
+                // Empty span: delete it entirely
+                e.preventDefault();
+                const pageDiv=span.closest('.pdf-page');
+                const spans=Array.from(pageDiv.querySelectorAll('.text-span'));
+                spans.sort((a,b)=>a._meta.y-b._meta.y||a._meta.x-b._meta.x);
+                const idx=spans.indexOf(span);
+                span.remove();
+                changes++; updateChangeCount();
+                // Focus previous span if exists
+                if(idx>0 && spans[idx-1]){
+                    spans[idx-1].focus();
+                    setCursorOffset(spans[idx-1],(spans[idx-1].textContent||'').length);
+                } else if(idx>0){
+                    spans[0] && spans[0].focus();
+                }
+            }
+        }
+
         function splitSpanAtCursor(span,e){
             e.preventDefault();
             const offset=getCursorOffset(span);
@@ -798,7 +880,7 @@
             const meta=span._meta;
             const pageDiv=span.parentElement;
             const pageH=pageDiv.offsetHeight;
-            const lineHeight=meta.height;
+            const lineHeight=meta.leading||meta.height;  // Phase 4: use PDF-derived leading
             const newY=meta.y+lineHeight;
 
             // Update current span with text before cursor
@@ -815,7 +897,7 @@
             const newSpanX = (meta.dir === 'rtl')
                 ? (meta.x + meta.width)  // for RTL: x = anchorRight (width will be set below)
                 : meta.x;
-            const newSpan=createNewSpan(meta.pageNum,newSpanX,newY,lineHeight,after,meta.fontName,meta.dir);
+            const newSpan=createNewSpan(meta.pageNum,newSpanX,newY,lineHeight,after,meta.fontName,meta.dir,lineHeight,{isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color});
             // For RTL: adjust x so anchorRight matches parent's
             if(meta.dir === 'rtl'){
                 const estimatedWidth = (after||'').length * lineHeight * 0.6;
@@ -843,7 +925,7 @@
             setCursorOffset(newSpan,0);
         }
 
-        function createNewSpan(pageNum,x,y,fontSize,text,fontName,dir){
+        function createNewSpan(pageNum,x,y,fontSize,text,fontName,dir,leading,style){
             const span=document.createElement('span');
             span.className='text-span';
             span.contentEditable='true';
@@ -856,11 +938,13 @@
             span.style.position='absolute';
             span.style.fontSize=(fontSize*zoom)+'px';
             span.style.fontFamily=fontName?mapFontToWeb(fontName):mapFontToWeb(null);
-            span.style.fontWeight='normal';
-            span.style.fontStyle='normal';
-            span.style.textDecoration='none';
-            span.style.color='rgb(0,0,0)';
-            span.style.lineHeight='1.15';
+            // Phase 5: inherit full styling from parent (or defaults)
+            span.style.fontWeight=style&&style.isBold?'bold':'normal';
+            span.style.fontStyle=style&&style.isItalic?'italic':'normal';
+            span.style.textDecoration=style&&style.hasUnderline?'underline':'none';
+            span.style.color=style?style.color:'rgb(0,0,0)';
+            const effectiveLeading = leading || fontSize * 1.2;
+            span.style.lineHeight = (effectiveLeading / fontSize).toFixed(2);
             span.style.whiteSpace='pre';
             span.style.minWidth=Math.max((text||'').length*fontSize*0.6*zoom,10)+'px';
             span.style.padding='0'; span.style.margin='0';
@@ -874,7 +958,8 @@
             const resolvedDir = dir || documentDir;
             span.setAttribute('dir', resolvedDir);
 
-            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,isBold:false,isItalic:false,hasUnderline:false,dir:resolvedDir};
+            const effLeading = leading || fontSize * 1.2;
+            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,leading:effLeading,isBold:!!(style&&style.isBold),isItalic:!!(style&&style.isItalic),hasUnderline:!!(style&&style.hasUnderline),dir:resolvedDir};
 
             // Position with direction awareness
             positionSpan(span, span._meta);
@@ -928,7 +1013,7 @@
                 if(nt!==orig){span.dataset.originalText=nt; span.classList.add('changed'); changes++; updateChangeCount();}
             });
 
-            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e);});
+            span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e); if(e.key==='Backspace') handleBackspace(span,e);});
 
             return span;
         }
