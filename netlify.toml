@@ -1,0 +1,9 @@
+[build]
+  publish = "public"
+  command = "npm install"
+
+# Static site - all files served directly from /public folder
+# No SPA redirect needed since all pages are individual HTML files
+
+[build.environment]
+  NODE_VERSION = "18"
