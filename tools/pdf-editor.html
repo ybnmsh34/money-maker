@@ -484,7 +484,14 @@
             }
         });
         fontSizeInput.addEventListener('change', () => { if(lastEditingEl) lastEditingEl.style.fontSize = (parseInt(fontSizeInput.value)*zoom)+'px'; });
-        fontColorInput.addEventListener('input', () => { if(lastEditingEl) lastEditingEl.style.color = fontColorInput.value; });
+        fontColorInput.addEventListener('input', () => {
+            if(lastEditingEl){
+                lastEditingEl.style.color = fontColorInput.value;
+                if(lastEditingEl.style.textDecoration && lastEditingEl.style.textDecoration !== 'none'){
+                    lastEditingEl.style.textDecorationColor = fontColorInput.value;
+                }
+            }
+        });
         // Dir toggle: apply direction to current span
         $('dirToggle').addEventListener('change', function(){
             if(lastEditingEl && lastEditingEl._meta){
