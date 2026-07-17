@@ -7,6 +7,7 @@
     <meta name="description" content="Edit PDF text online for free. Full styling: fonts, colors, bold, italic, underline.">
     <link rel="stylesheet" href="../css/style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&family=Open+Sans:wght@400;700&family=Lato:wght@400;700&family=Montserrat:wght@400;700&family=Raleway:wght@400;700&family=PT+Sans:wght@400;700&family=Nunito:wght@400;700&family=Poppins:wght@400;700&family=Playfair+Display:wght@400;700&family=Merriweather:wght@400;700&family=Lora:wght@400;700&family=Fira+Code:wght@400;700&family=IBM+Plex+Mono:wght@400;700&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <link rel="manifest" href="../manifest.json">
     <link rel="icon" type="image/png" href="../images/icon-192.png">
     <style>
@@ -102,7 +103,33 @@
         </div>
         <div id="editorArea" style="display:none;">
             <div class="editor-toolbar">
-                <div class="toolbar-group"><label>Font:</label><select id="fontFamily"><option value="helvetica">Sans-Serif</option><option value="serif">Serif</option><option value="monospace">Monospace</option></select></div>
+                <div class="toolbar-group"><label>Font:</label><select id="fontFamily">
+<option value="helvetica">Helvetica</option>
+<option value="serif">Times New Roman</option>
+<option value="monospace">Courier</option>
+<optgroup label="Sans">
+<option value="roboto">Roboto</option>
+<option value="open-sans">Open Sans</option>
+<option value="lato">Lato</option>
+<option value="montserrat">Montserrat</option>
+<option value="raleway">Raleway</option>
+<option value="pt-sans">PT Sans</option>
+<option value="nunito">Nunito</option>
+<option value="poppins">Poppins</option>
+</optgroup>
+<optgroup label="Serif">
+<option value="playfair-display">Playfair Display</option>
+<option value="merriweather">Merriweather</option>
+<option value="lora">Lora</option>
+</optgroup>
+<optgroup label="Mono">
+<option value="fira-code">Fira Code</option>
+<option value="ibm-plex-mono">IBM Plex Mono</option>
+</optgroup>
+<optgroup label="Script">
+<option value="dancing-script">Dancing Script</option>
+</optgroup>
+</select></div>
                 <div class="toolbar-group"><label>Size:</label><input type="number" id="fontSizeInput" value="12" min="6" max="72"></div>
                 <div class="toolbar-group"><label>Bold:</label><button class="btn btn-secondary" id="boldBtn" onclick="toggleBold()" onmousedown="event.preventDefault()" style="min-width:36px;font-weight:bold;">B</button></div>
                 <div class="toolbar-group"><label>Italic:</label><button class="btn btn-secondary" id="italicBtn" onclick="toggleItalic()" onmousedown="event.preventDefault()" style="min-width:36px;font-style:italic;">I</button></div>
@@ -128,7 +155,7 @@
 
         console.log('PDF Editor script loaded');
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
-        let pdfDoc = null, currentFile = null, zoom = 1, changes = 0, currentEditingEl = null, allPages = [];
+        let pdfDoc = null, currentFile = null, zoom = 1, changes = 0, currentEditingEl = null, lastEditingEl = null, allPages = [];
         let documentDir = 'ltr'; // dominant direction computed at parse time
 
         // ---- Boundary constants (PDF points, unscaled) ----
@@ -314,7 +341,7 @@
                 contX = meta.x;
             }
 
-            const contSpan = createNewSpan(meta.pageNum, contX, newY, meta.fontSize, after, meta.fontName, meta.dir, meta.leading, {isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color});
+            const contSpan = createNewSpan(meta.pageNum, contX, newY, meta.fontSize, after, meta.fontName, meta.dir, meta.leading, {isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color,fontType:meta.fontType||null});
             // Phase 4: clamp continuation span
             clampSpanPosition(contSpan._meta, meta.pageNum);
             positionSpan(contSpan, contSpan._meta);
@@ -443,29 +470,32 @@
         fileInput.addEventListener('change', e => { if(e.target.files[0]) loadPDF(e.target.files[0]); });
         // ---- Phase 2 fix: toolbar focus preservation ----
         // Buttons use onmousedown="event.preventDefault()" to prevent focus steal.
-        // Inputs/selects need to actually receive focus, so we save/restore currentEditingEl.
+        // lastEditingEl tracks the last focused span and survives blur events (for toolbar use).
+        // currentEditingEl tracks the currently focused span (for visual toolbar state).
         function applyToolbarChange(handler){
             const savedEl = currentEditingEl;
             handler();
-            // Restore reference in case blur cleared it
             if(savedEl && !currentEditingEl) currentEditingEl = savedEl;
         }
-        fontFamilySelect.addEventListener('change', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.fontFamily = mapFontType(fontFamilySelect.value); }); });
-        fontSizeInput.addEventListener('change', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.fontSize = (parseInt(fontSizeInput.value)*zoom)+'px'; }); });
-        fontColorInput.addEventListener('input', () => { applyToolbarChange(() => { if(currentEditingEl) currentEditingEl.style.color = fontColorInput.value; }); });
+        fontFamilySelect.addEventListener('change', () => {
+            if(lastEditingEl){
+                lastEditingEl.style.fontFamily = mapFontType(fontFamilySelect.value);
+                lastEditingEl._meta.fontType = fontFamilySelect.value;  // Track font for export
+            }
+        });
+        fontSizeInput.addEventListener('change', () => { if(lastEditingEl) lastEditingEl.style.fontSize = (parseInt(fontSizeInput.value)*zoom)+'px'; });
+        fontColorInput.addEventListener('input', () => { if(lastEditingEl) lastEditingEl.style.color = fontColorInput.value; });
         // Dir toggle: apply direction to current span
         $('dirToggle').addEventListener('change', function(){
-            applyToolbarChange(() => {
-                if(currentEditingEl && currentEditingEl._meta){
-                    currentEditingEl._meta.dir = this.value;
-                    currentEditingEl.setAttribute('dir', this.value);
-                    positionSpan(currentEditingEl, currentEditingEl._meta);
-                }
-            });
+            if(lastEditingEl && lastEditingEl._meta){
+                lastEditingEl._meta.dir = this.value;
+                lastEditingEl.setAttribute('dir', this.value);
+                positionSpan(lastEditingEl, lastEditingEl._meta);
+            }
         });
-        function toggleBold(){ if(!currentEditingEl)return; currentEditingEl.style.fontWeight=currentEditingEl.style.fontWeight==='bold'?'normal':'bold'; boldBtn.style.background=currentEditingEl.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':''; }
-        function toggleItalic(){ if(!currentEditingEl)return; currentEditingEl.style.fontStyle=currentEditingEl.style.fontStyle==='italic'?'normal':'italic'; italicBtn.style.background=currentEditingEl.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':''; }
-        function toggleUnderline(){ if(!currentEditingEl)return; currentEditingEl.style.textDecoration=currentEditingEl.style.textDecoration==='underline'?'none':'underline'; underlineBtn.style.background=currentEditingEl.style.textDecoration==='underline'?'rgba(0,212,255,0.3)':''; }
+        function toggleBold(){ if(!lastEditingEl)return; lastEditingEl.style.fontWeight=lastEditingEl.style.fontWeight==='bold'?'normal':'bold'; boldBtn.style.background=lastEditingEl.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':''; }
+        function toggleItalic(){ if(!lastEditingEl)return; lastEditingEl.style.fontStyle=lastEditingEl.style.fontStyle==='italic'?'normal':'italic'; italicBtn.style.background=lastEditingEl.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':''; }
+        function toggleUnderline(){ if(!lastEditingEl)return; lastEditingEl.style.textDecoration=lastEditingEl.style.textDecoration==='underline'?'none':'underline'; underlineBtn.style.background=lastEditingEl.style.textDecoration==='underline'?'rgba(0,212,255,0.3)':''; }
 
         // ============================================================
         // LOAD: parse PDF only, never render it for display
@@ -642,7 +672,8 @@
             span.setAttribute('dir', dir);
 
             // Metadata for export (with direction)
-            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,leading:line.leading||line.fontSize*1.2,isBold,isItalic,hasUnderline:line.hasUnderline,dir:dir};
+            const parsedFontType = line.fontName ? detectFontTypeFromName(line.fontName) : 'helvetica';
+            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,leading:line.leading||line.fontSize*1.2,isBold,isItalic,hasUnderline:line.hasUnderline,dir:dir,fontType:parsedFontType};
 
             // Position with direction awareness
             positionSpan(span, span._meta);
@@ -674,7 +705,7 @@
 
             // Focus: update toolbar
             span.addEventListener('focus',()=>{
-                currentEditingEl=span;
+                currentEditingEl=span; lastEditingEl=span;
                 fontSizeInput.value=Math.round(parseInt(span.style.fontSize)/zoom);
                 const c=span.style.color;
                 if(c.startsWith('rgb')){
@@ -897,7 +928,7 @@
             const newSpanX = (meta.dir === 'rtl')
                 ? (meta.x + meta.width)  // for RTL: x = anchorRight (width will be set below)
                 : meta.x;
-            const newSpan=createNewSpan(meta.pageNum,newSpanX,newY,lineHeight,after,meta.fontName,meta.dir,lineHeight,{isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color});
+            const newSpan=createNewSpan(meta.pageNum,newSpanX,newY,lineHeight,after,meta.fontName,meta.dir,lineHeight,{isBold:meta.isBold,isItalic:meta.isItalic,hasUnderline:meta.hasUnderline,color:span.style.color,fontType:meta.fontType||null});
             // For RTL: adjust x so anchorRight matches parent's
             if(meta.dir === 'rtl'){
                 const estimatedWidth = (after||'').length * lineHeight * 0.6;
@@ -959,13 +990,14 @@
             span.setAttribute('dir', resolvedDir);
 
             const effLeading = leading || fontSize * 1.2;
-            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,leading:effLeading,isBold:!!(style&&style.isBold),isItalic:!!(style&&style.isItalic),hasUnderline:!!(style&&style.hasUnderline),dir:resolvedDir};
+            const fontType = style && style.fontType ? style.fontType : (fontName ? detectFontTypeFromName(fontName) : 'helvetica');
+            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,leading:effLeading,isBold:!!(style&&style.isBold),isItalic:!!(style&&style.isItalic),hasUnderline:!!(style&&style.hasUnderline),dir:resolvedDir,fontType:fontType};
 
             // Position with direction awareness
             positionSpan(span, span._meta);
 
             span.addEventListener('focus',()=>{
-                currentEditingEl=span;
+                currentEditingEl=span; lastEditingEl=span;
                 fontSizeInput.value=Math.round(parseInt(span.style.fontSize)/zoom);
                 const c=span.style.color;
                 if(c.startsWith('rgb')){
@@ -1026,9 +1058,26 @@
             return "'Helvetica', Arial, sans-serif";
         }
         function mapFontType(type){
-            if(type==='serif') return "'Times New Roman', Times, serif";
-            if(type==='monospace') return "'Courier New', Courier, monospace";
-            return "'Helvetica', Arial, sans-serif";
+            const fonts = {
+                'helvetica': "'Helvetica', Arial, sans-serif",
+                'serif': "'Times New Roman', Times, serif",
+                'monospace': "'Courier New', Courier, monospace",
+                'roboto': "'Roboto', 'Helvetica Neue', Arial, sans-serif",
+                'open-sans': "'Open Sans', 'Helvetica Neue', Arial, sans-serif",
+                'lato': "'Lato', 'Helvetica Neue', Arial, sans-serif",
+                'montserrat': "'Montserrat', 'Helvetica Neue', Arial, sans-serif",
+                'raleway': "'Raleway', 'Helvetica Neue', Arial, sans-serif",
+                'pt-sans': "'PT Sans', 'Helvetica Neue', Arial, sans-serif",
+                'nunito': "'Nunito', 'Helvetica Neue', Arial, sans-serif",
+                'poppins': "'Poppins', 'Helvetica Neue', Arial, sans-serif",
+                'playfair-display': "'Playfair Display', 'Times New Roman', serif",
+                'merriweather': "'Merriweather', 'Times New Roman', serif",
+                'lora': "'Lora', 'Times New Roman', serif",
+                'fira-code': "'Fira Code', 'Courier New', monospace",
+                'ibm-plex-mono': "'IBM Plex Mono', 'Courier New', monospace",
+                'dancing-script': "'Dancing Script', cursive"
+            };
+            return fonts[type] || fonts['helvetica'];
         }
 
         // ============================================================
@@ -1073,6 +1122,15 @@
                 document.getElementById('pdf-page-'+pageNum).scrollIntoView({behavior:'smooth'});
             });
             pagesPanel.appendChild(thumb);
+        }
+
+        // ---- Phase 6: Detect font type from PDF font name ----
+        function detectFontTypeFromName(name){
+            if(!name) return 'helvetica';
+            const n = name.toLowerCase();
+            if(n.includes('times') || n.includes('roman')) return 'serif';
+            if(n.includes('courier') || n.includes('mono')) return 'monospace';
+            return 'helvetica';
         }
 
         function changeZoom(d){zoom=Math.max(0.5,Math.min(3,zoom+d)); zoomLevelEl.textContent=Math.round(zoom*100)+'%'; rebuildAll();}
@@ -1147,6 +1205,26 @@
                     throw new Error('Cannot load Hebrew font: ' + err.message + '. Ensure fonts/NotoSansHebrew-*.ttf exist.');
                 }
 
+                // ---- Phase 6: Load custom fonts (lazy cache) ----
+                const customFontCache = {};
+                async function loadCustomFont(type, isBold) {
+                    const key = type + (isBold ? '-bold' : '-regular');
+                    if (!customFontCache[key]) {
+                        const folderName = type.toLowerCase().replace(/\s+/g, '-');
+                        const url = `fonts/${folderName}/${isBold ? 'bold' : 'regular'}.ttf`;
+                        try {
+                            const resp = await fetch(url);
+                            if (!resp.ok) throw new Error(`Font ${url}: ${resp.status}`);
+                            const fontBytes = await resp.arrayBuffer();
+                            customFontCache[key] = await doc.embedFont(fontBytes);
+                        } catch(e) {
+                            console.warn(`Failed to load custom font ${type} (${isBold?'bold':'regular'}): ${e.message}`);
+                            customFontCache[key] = null; // fallback to standard
+                        }
+                    }
+                    return customFontCache[key];
+                }
+
                 // Add new pages if any were created
                 const originalPages=doc.getPageCount();
                 for(let i=originalPages+1;i<=allPages.length;i++){
@@ -1165,16 +1243,23 @@
                     const sx=pw/pe.offsetWidth, sy=ph/pe.offsetHeight;
                     const fs=m.fontSize*Math.min(sx,sy);
 
-                    // Phase 6: Choose font based on direction
+                    // Phase 6: Choose font based on direction and fontType
                     let font;
                     if(m.dir === 'rtl') {
                         // Hebrew: use Noto Sans Hebrew
                         font = m.isBold ? hebrewBold : hebrewFont;
                     } else {
-                        // LTR: use standard fonts
-                        font = helvetica;
-                        if(m.fontName&&(/times|roman/i.test(m.fontName))) font=times;
-                        else if(m.fontName&&(/courier|mono/i.test(m.fontName))) font=courier;
+                        // Check for custom font first (from toolbar selection)
+                        const fontType = m.fontType || (m.fontName ? detectFontTypeFromName(m.fontName) : 'helvetica');
+                        const customFont = await loadCustomFont(fontType, m.isBold);
+                        if (customFont) {
+                            font = customFont;
+                        } else {
+                            // Fallback to standard fonts
+                            font = helvetica;
+                            if(/times|roman/i.test(m.fontName||'')) font=times;
+                            else if(/courier|mono/i.test(m.fontName||'')) font=courier;
+                        }
                     }
 
                     // Phase 6: bidi-js for RTL text
@@ -1239,7 +1324,7 @@
         }
 
         function resetEditor(){
-            pdfDoc=null; currentFile=null; allPages=[]; changes=0; zoom=1; currentEditingEl=null;
+            pdfDoc=null; currentFile=null; allPages=[]; changes=0; zoom=1; currentEditingEl=null; lastEditingEl=null;
             zoomLevelEl.textContent='100%'; viewer.innerHTML=''; pagesPanel.innerHTML='';
             resultArea.style.display='none'; uploadZone.style.display='block';
             editorArea.style.display='none'; fileInput.value=''; updateChangeCount();
