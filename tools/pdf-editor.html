@@ -36,6 +36,17 @@
         .text-span:hover { border: 1px dashed rgba(0,212,255,0.4); }
         .text-span:focus { border: 2px solid var(--neon-blue); z-index: 100; }
         .text-span.changed { border: 1px solid rgba(6,255,210,0.4); }
+        .text-span.edge-guide::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: rgba(255, 100, 100, 0.4);
+            pointer-events: none;
+        }
+        .text-span[dir="ltr"].edge-guide::after { right: 0; }
+        .text-span[dir="rtl"].edge-guide::after { left: 0; }
         .pages-panel { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
         .page-thumb { width: 80px; height: 100px; background: #fff; border: 2px solid transparent; border-radius: 6px; cursor: pointer; overflow: hidden; transition: border-color 0.2s; }
         .page-thumb:hover { border-color: rgba(0,212,255,0.5); }
@@ -97,6 +108,7 @@
                 <div class="toolbar-group"><label>Italic:</label><button class="btn btn-secondary" id="italicBtn" onclick="toggleItalic()" style="min-width:36px;font-style:italic;">I</button></div>
                 <div class="toolbar-group"><label>Underline:</label><button class="btn btn-secondary" id="underlineBtn" onclick="toggleUnderline()" style="min-width:36px;text-decoration:underline;">U</button></div>
                 <div class="toolbar-group"><label>Color:</label><input type="color" id="fontColor" value="#000000"></div>
+                <div class="toolbar-group"><label>Dir:</label><select id="dirToggle"><option value="ltr">LTR</option><option value="rtl">RTL</option></select></div>
                 <div class="toolbar-group"><label>Zoom:</label><div class="zoom-controls"><button onclick="changeZoom(-0.1)">-</button><span id="zoomLevel" class="page-indicator">100%</span><button onclick="changeZoom(0.1)">+</button></div></div>
                 <div class="toolbar-group"><span id="changeCount" class="page-indicator">0 changes</span></div>
                 <div class="toolbar-group"><button class="btn" onclick="exportPDF()">Save PDF</button><button class="btn btn-secondary" onclick="resetEditor()">New File</button></div>
@@ -109,12 +121,314 @@
     </main>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bidi-js@1.0.3/dist/bidi.min.js"></script>
     <script>
 
 
         console.log('PDF Editor script loaded');
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
         let pdfDoc = null, currentFile = null, zoom = 1, changes = 0, currentEditingEl = null, allPages = [];
+        let documentDir = 'ltr'; // dominant direction computed at parse time
+
+        // ---- Boundary constants (PDF points, unscaled) ----
+        const EDGE_PAD = 4;
+        const MIN_SPAN_WIDTH = 40;
+        const BOTTOM_PAD = 10;
+
+        // ---- Phase 1: boundary source of truth ----
+        // Returns {width, height} in unscaled PDF points for a given 1-based page number.
+        function getPageBounds(pageNum) {
+            const entry = allPages[pageNum - 1];
+            if (!entry) {
+                console.warn('getPageBounds: page ' + pageNum + ' not found in allPages');
+                return { width: 612, height: 792 }; // fallback A4
+            }
+            return { width: entry.width, height: entry.height };
+        }
+
+        // ---- Phase 2: direction detection ----
+        // Detect if text contains RTL characters (Hebrew U+0590–U+05FF, Arabic U+0600–U+06FF)
+        function detectDirection(text) {
+            if (!text) return 'ltr';
+            for (let i = 0; i < text.length; i++) {
+                const c = text.charCodeAt(i);
+                if ((c >= 0x0590 && c <= 0x05FF) || (c >= 0x0600 && c <= 0x06FF)) return 'rtl';
+            }
+            return 'ltr';
+        }
+
+        // Compute document-dominant direction from all extracted text
+        function computeDocumentDirection() {
+            let rtlChars = 0, ltrChars = 0;
+            for (const page of allPages) {
+                for (const line of page.lines) {
+                    for (const item of line.items) {
+                        for (let i = 0; i < item.str.length; i++) {
+                            const c = item.str.charCodeAt(i);
+                            if ((c >= 0x0590 && c <= 0x05FF) || (c >= 0x0600 && c <= 0x06FF)) rtlChars++;
+                            else if (c >= 0x0020 && c < 0x0590) ltrChars++; // printable ASCII-Latin
+                        }
+                    }
+                }
+            }
+            documentDir = rtlChars > ltrChars ? 'rtl' : 'ltr';
+            console.log('[Phase 2] Document direction: ' + documentDir + ' (rtl=' + rtlChars + ', ltr=' + ltrChars + ')');
+            return documentDir;
+        }
+
+        // Position a span with direction awareness. Sets CSS left OR right (not both).
+        function positionSpan(span, meta, zoomLevel) {
+            const z = zoomLevel || zoom;
+            if (meta.dir === 'rtl') {
+                // RTL: anchor right edge, position with CSS right
+                const anchorRight = meta.x + meta.width; // from extraction
+                const rightPx = (getPageBounds(meta.pageNum).width - anchorRight) * z;
+                span.style.left = '';
+                span.style.right = rightPx + 'px';
+            } else {
+                // LTR: position with CSS left
+                span.style.right = '';
+                span.style.left = (meta.x * z) + 'px';
+            }
+            span.style.top = ((meta.y - meta.fontSize) * z) + 'px';
+        }
+
+        // ---- Phase 3: directional overflow wrapping ----
+        // Called on every input event. Splits overflowing text at last word break.
+        function handleOverflowWrap(span) {
+            const meta = span._meta;
+            const pageDiv = span.parentElement;
+            if (!pageDiv || !meta) return;
+
+            const bounds = getPageBounds(meta.pageNum);
+            const pageWidth = bounds.width;
+            const text = span.textContent || '';
+
+            // Measure rendered width in unscaled PDF points
+            const renderedWidth = span.offsetWidth / zoom;
+
+            // Check overflow based on direction
+            let overflowing = false;
+            if (meta.dir === 'rtl') {
+                // RTL: anchorRight - textWidth < EDGE_PAD means text extends past left edge
+                const anchorRight = meta.x + meta.width;
+                if (anchorRight - renderedWidth < EDGE_PAD) overflowing = true;
+            } else {
+                // LTR: x + textWidth > pageWidth - EDGE_PAD
+                if (meta.x + renderedWidth > pageWidth - EDGE_PAD) overflowing = true;
+            }
+
+            if (!overflowing) return;
+
+            // Find last word break (space) that fits within the line
+            const maxTextWidth = (meta.dir === 'rtl')
+                ? (meta.x + meta.width) - EDGE_PAD  // for RTL: how much room from left edge to anchorRight
+                : pageWidth - EDGE_PAD - meta.x;    // for LTR: how much room from x to right edge
+
+            // Find split point: last word break where left portion fits
+            let splitIdx = -1;
+            for (let i = text.length - 1; i >= 0; i--) {
+                if (text[i] === ' ') {
+                    const candidate = text.substring(0, i);
+                    // Create temp to measure
+                    const tempSpan = document.createElement('span');
+                    tempSpan.style.fontSize = span.style.fontSize;
+                    tempSpan.style.fontFamily = span.style.fontFamily;
+                    tempSpan.style.fontWeight = span.style.fontWeight;
+                    tempSpan.style.fontStyle = span.style.fontStyle;
+                    tempSpan.style.whiteSpace = 'pre';
+                    tempSpan.style.position = 'absolute';
+                    tempSpan.style.visibility = 'hidden';
+                    tempSpan.style.left = '-9999px';
+                    tempSpan.textContent = candidate;
+                    pageDiv.appendChild(tempSpan);
+                    const candidateWidth = tempSpan.offsetWidth / zoom;
+                    pageDiv.removeChild(tempSpan);
+                    if (candidateWidth <= maxTextWidth) {
+                        splitIdx = i;
+                        break;
+                    }
+                }
+            }
+
+            // If no word break fits and text is > 1 char, split at max possible
+            // (Phase 3 rule: unbreakable word lets overflow, but we still try to wrap at character level
+            //  to prevent infinite loops. Single unbreakable word wider than line is left alone.)
+            if (splitIdx === -1 && text.length > 1) {
+                // Try character-by-character binary search for max fitting length
+                let lo = 1, hi = text.length - 1, bestFit = 0;
+                while (lo <= hi) {
+                    const mid = (lo + hi) >> 1;
+                    const candidate = text.substring(0, mid);
+                    const tempSpan = document.createElement('span');
+                    tempSpan.style.fontSize = span.style.fontSize;
+                    tempSpan.style.fontFamily = span.style.fontFamily;
+                    tempSpan.style.fontWeight = span.style.fontWeight;
+                    tempSpan.style.fontStyle = span.style.fontStyle;
+                    tempSpan.style.whiteSpace = 'pre';
+                    tempSpan.style.position = 'absolute';
+                    tempSpan.style.visibility = 'hidden';
+                    tempSpan.style.left = '-9999px';
+                    tempSpan.textContent = candidate;
+                    pageDiv.appendChild(tempSpan);
+                    const candidateWidth = tempSpan.offsetWidth / zoom;
+                    pageDiv.removeChild(tempSpan);
+                    if (candidateWidth <= maxTextWidth) {
+                        bestFit = mid;
+                        lo = mid + 1;
+                    } else {
+                        hi = mid - 1;
+                    }
+                }
+                if (bestFit > 0) splitIdx = bestFit;
+            }
+
+            if (splitIdx <= 0) return; // Can't split (single unbreakable word or empty)
+
+            // Save caret info: character offset of caret before DOM surgery
+            const caretOffset = getCursorOffset(span);
+
+            // Split at word break
+            const before = text.substring(0, splitIdx).replace(/ +$/, ''); // trim trailing space
+            const after = text.substring(splitIdx).replace(/^ +/, '');      // trim leading space
+
+            // Update current span
+            span.textContent = before;
+            span.dataset.originalText = before;
+            if (!span.classList.contains('changed')) {
+                span.classList.add('changed');
+                changes++;
+                updateChangeCount();
+            }
+
+            // Create continuation span one line-height below
+            const newY = meta.y + meta.height;
+            let contX;
+            if (meta.dir === 'rtl') {
+                // RTL continuation: same anchorRight as parent
+                const estimatedWidth = after.length * meta.fontSize * 0.6;
+                contX = (meta.x + meta.width) - estimatedWidth;
+            } else {
+                // LTR continuation: same left origin
+                contX = meta.x;
+            }
+
+            const contSpan = createNewSpan(meta.pageNum, contX, newY, meta.fontSize, after, meta.fontName, meta.dir);
+            // Phase 4: clamp continuation span
+            clampSpanPosition(contSpan._meta, meta.pageNum);
+            positionSpan(contSpan, contSpan._meta);
+            contSpan.classList.add('changed');
+            changes++;
+            updateChangeCount();
+            pageDiv.appendChild(contSpan);
+
+            // Shift spans below
+            shiftSpansDown(pageDiv, meta.y, meta.height, meta.pageNum, span);
+
+            // Handle bottom overflow (cascade to new pages)
+            const allOverflow = Array.from(pageDiv.querySelectorAll('.text-span')).filter(s => {
+                const top = parseFloat(s.style.top);
+                const h = s._meta ? s._meta.height * zoom : parseFloat(s.offsetHeight || s.style.fontSize);
+                return top + h > pageDiv.offsetHeight - BOTTOM_PAD;
+            });
+            if (allOverflow.length > 0) {
+                cascadeSpansToNewPages(allOverflow, pageDiv, meta.pageNum);
+            }
+
+            // Restore caret
+            // If caret was before split point, keep it in original span
+            // If caret was at/after split point, move to continuation span
+            requestAnimationFrame(() => {
+                if (caretOffset >= before.length) {
+                    contSpan.focus();
+                    setCursorOffset(contSpan, 0);
+                } else {
+                    span.focus();
+                    setCursorOffset(span, caretOffset);
+                }
+            });
+        }
+
+        // ---- Phase 5: edge guide ----
+        function showEdgeGuide(span) {
+            if (!span._meta || !span.parentElement) return;
+            const meta = span._meta;
+            const bounds = getPageBounds(meta.pageNum);
+            const w = span.offsetWidth / zoom;
+            const THRESHOLD = 30; // points
+
+            let nearEdge = false;
+            if (meta.dir === 'ltr') {
+                // LTR: near right edge when x + w > pageWidth - EDGE_PAD - THRESHOLD
+                if (meta.x + w > bounds.width - EDGE_PAD - THRESHOLD) nearEdge = true;
+            } else {
+                // RTL: near left edge when anchorRight - w < EDGE_PAD + THRESHOLD
+                const rightPx = parseFloat(span.style.right);
+                const anchorRight = (rightPx / zoom) + w;
+                if (anchorRight - w < EDGE_PAD + THRESHOLD) nearEdge = true;
+            }
+            span.classList.toggle('edge-guide', nearEdge);
+        }
+
+        // ---- Phase 4: clamp span creation coordinates ----
+        function clampSpanPosition(meta, pageNum) {
+            const bounds = getPageBounds(pageNum);
+            const pw = bounds.width;
+            const ph = bounds.height;
+            const lh = meta.height || 12;
+
+            if (meta.dir === 'rtl') {
+                // RTL: clamp anchorRight into [MIN_SPAN_WIDTH, pageWidth - EDGE_PAD]
+                let ar = meta.x + meta.width;
+                ar = Math.max(MIN_SPAN_WIDTH, Math.min(pw - EDGE_PAD, ar));
+                meta.width = Math.max(MIN_SPAN_WIDTH, meta.width || MIN_SPAN_WIDTH);
+                meta.x = ar - meta.width;
+            } else {
+                // LTR: clamp x into [EDGE_PAD, pageWidth - MIN_SPAN_WIDTH]
+                meta.x = Math.max(EDGE_PAD, Math.min(pw - MIN_SPAN_WIDTH, meta.x));
+                meta.width = Math.max(MIN_SPAN_WIDTH, meta.width || MIN_SPAN_WIDTH);
+            }
+            // Clamp y
+            meta.y = Math.max(EDGE_PAD, Math.min(ph - lh - EDGE_PAD, meta.y));
+            return meta;
+        }
+
+        // Cascade spans past bottom edge to new page(s) — reused by Enter-split and overflow-wrap
+        function cascadeSpansToNewPages(overflowSpans, pageDiv, pageNum) {
+            const nextPageNum = allPages.length + 1;
+            const nextPageDiv = createNewPage(nextPageNum, pageDiv.offsetWidth, pageDiv.offsetHeight);
+            viewer.appendChild(nextPageDiv);
+            setupDoubleClickOnPage(nextPageDiv);
+            allPages.push({ pageNum: nextPageNum, width: pageDiv.offsetWidth / zoom, height: pageDiv.offsetHeight / zoom, lines: [] });
+            createNewThumbnail(nextPageNum);
+
+            let currentDiv = nextPageDiv;
+            let currentPageNum = nextPageNum;
+            const topOffset = 20;
+            const maxY = currentDiv.offsetHeight / zoom - BOTTOM_PAD;
+            let curY = topOffset;
+
+            for (const os of overflowSpans) {
+                const spanHeight = os._meta ? os._meta.height : 12;
+                if (curY + spanHeight > maxY) {
+                    const nn = allPages.length + 1;
+                    const nd = createNewPage(nn, currentDiv.offsetWidth, currentDiv.offsetHeight);
+                    viewer.appendChild(nd);
+                    setupDoubleClickOnPage(nd);
+                    allPages.push({ pageNum: nn, width: currentDiv.offsetWidth / zoom, height: currentDiv.offsetHeight / zoom, lines: [] });
+                    createNewThumbnail(nn);
+                    currentDiv = nd;
+                    currentPageNum = nn;
+                    curY = topOffset;
+                }
+                os.style.top = (curY * zoom) + 'px';
+                if (os._meta) { os._meta.y = curY; os._meta.pageNum = currentPageNum; }
+                os.dataset.page = currentPageNum;
+                currentDiv.appendChild(os);
+                curY += spanHeight;
+            }
+        }
         const $ = id => document.getElementById(id);
         const uploadZone=$('uploadZone'), fileInput=$('fileInput'), editorArea=$('editorArea'), viewer=$('viewer'),
             progressBar=$('progressBar'), progressFill=$('progressFill'), resultArea=$('resultArea'),
@@ -149,6 +463,15 @@
                     await parsePage(i);
                 }
                 progressFill.style.width='100%';
+                // Phase 1 verification: log bounds for each page
+                console.log('[Phase 1] Page bounds (PDF points, unscaled):');
+                for(let i=1;i<=allPages.length;i++){
+                    const b=getPageBounds(i);
+                    console.log('  Page '+i+': '+b.width.toFixed(1)+'×'+b.height.toFixed(1));
+                }
+                // Phase 2: compute document direction and set toolbar default
+                const dir = computeDocumentDirection();
+                $('dirToggle').value = dir;
                 setTimeout(()=>{progressBar.style.display='none';},300);
                 uploadZone.style.display='none'; editorArea.style.display='block';
             }catch(err){console.error('Load failed:',err); alert('Failed to load PDF: '+err.message); progressBar.style.display='none';}
@@ -273,21 +596,27 @@
             const maxX=Math.max(...line.items.map(i=>i.x+i.width));
             const tw=maxX-minX;
             span.style.position='absolute';
-            span.style.left=(minX*zoom)+'px';
-            span.style.top=((line.y-line.fontSize)*zoom)+'px';
             span.style.fontSize=(line.fontSize*zoom)+'px';
 
             // Font family
             span.style.fontFamily=mapFontToWeb(line.fontName);
 
-            // Bold
+            // Bold / Italic detection (must be before _meta assignment)
             const fl=(line.fontName||'').toLowerCase();
             const isBold=fl.includes('bold')||fl.includes('black')||fl.includes('medium')||fl.includes('demi')||fl.includes('semibold');
             span.style.fontWeight=isBold?'bold':'normal';
-
-            // Italic
             const isItalic=fl.includes('italic')||fl.includes('oblique');
             span.style.fontStyle=isItalic?'italic':'normal';
+
+            // Phase 2: detect direction
+            const dir = detectDirection(text);
+            span.setAttribute('dir', dir);
+
+            // Metadata for export (with direction)
+            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,isBold,isItalic,hasUnderline:line.hasUnderline,dir:dir};
+
+            // Position with direction awareness
+            positionSpan(span, span._meta);
 
             // Underline
             span.style.textDecoration=line.hasUnderline?'underline':'none';
@@ -311,8 +640,7 @@
             span.style.pointerEvents='auto';
             span.style.userSelect='text';
 
-            // Metadata for export
-            span._meta={pageNum,x:minX,y:line.y,fontSize:line.fontSize,fontName:line.fontName,width:tw,height:line.fontSize,isBold,isItalic,hasUnderline:line.hasUnderline};
+
 
             // Focus: update toolbar
             span.addEventListener('focus',()=>{
@@ -330,6 +658,8 @@
                 boldBtn.style.background=span.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':'';
                 italicBtn.style.background=span.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':'';
                 underlineBtn.style.background=span.style.textDecoration==='underline'?'rgba(0,212,255,0.3)':'';
+                // Phase 2: update direction toggle
+                $('dirToggle').value = span._meta.dir || 'ltr';
             });
 
             // Blur: track changes
@@ -340,6 +670,13 @@
                 if(nt!==orig){span.dataset.originalText=nt; span.classList.add('changed'); changes++; updateChangeCount();}
             });
             span.addEventListener('keydown',e=>{if(e.key==='Enter') splitSpanAtCursor(span,e);});
+            // Phase 3: directional overflow wrapping
+            span.addEventListener('input', function(){
+                handleOverflowWrap(span);
+                showEdgeGuide(span);
+            });
+            span.addEventListener('focus', function(){ showEdgeGuide(span); });
+            span.addEventListener('blur', function(){ span.classList.remove('edge-guide'); });
             return span;
         }
 
@@ -354,7 +691,17 @@
                 const x=(e.clientX-rect.left)/zoom;
                 const y=(e.clientY-rect.top)/zoom;
                 const pageNum=parseInt(pageDiv.id.split('-').pop());
-                const newSpan=createNewSpan(pageNum,x,y,12,'',null);
+                const dir = $('dirToggle').value;
+                // Phase 2: for RTL, anchorRight = pageWidth - EDGE_PAD (full width)
+                // For LTR, x = click position
+                const bounds = getPageBounds(pageNum);
+                // For RTL: x = pageWidth - EDGE_PAD (anchorRight at right margin, width=0)
+                // For LTR: x = click position
+                const spanX = (dir === 'rtl') ? (bounds.width - EDGE_PAD) : x;
+                const newSpan=createNewSpan(pageNum,spanX,y,12,'',null,dir);
+                // Phase 4: clamp span creation
+                clampSpanPosition(newSpan._meta, pageNum);
+                positionSpan(newSpan, newSpan._meta);
                 pageDiv.appendChild(newSpan);
                 newSpan.focus();
             });
@@ -463,64 +810,40 @@
             // Shift ALL spans below this line down by one line height (exclude current span)
             const overflow=shiftSpansDown(pageDiv,meta.y,lineHeight,meta.pageNum,span);
 
-            // Create new span at the split position
-            const newSpan=createNewSpan(meta.pageNum,meta.x,newY,lineHeight,after,meta.fontName);
+            // Create new span at the split position (inherit direction from parent)
+            // For RTL, continuation uses same anchorRight; for LTR, same left origin
+            const newSpanX = (meta.dir === 'rtl')
+                ? (meta.x + meta.width)  // for RTL: x = anchorRight (width will be set below)
+                : meta.x;
+            const newSpan=createNewSpan(meta.pageNum,newSpanX,newY,lineHeight,after,meta.fontName,meta.dir);
+            // For RTL: adjust x so anchorRight matches parent's
+            if(meta.dir === 'rtl'){
+                const estimatedWidth = (after||'').length * lineHeight * 0.6;
+                newSpan._meta.x = (meta.x + meta.width) - estimatedWidth;
+                newSpan._meta.width = estimatedWidth;
+            }
+            // Phase 4: clamp
+            clampSpanPosition(newSpan._meta, meta.pageNum);
+            positionSpan(newSpan, newSpan._meta);
             newSpan.classList.add('changed');
             changes++; updateChangeCount();
             pageDiv.appendChild(newSpan);
 
-            // Handle overflow - move ALL spans past bottom to new page(s)
+            // Handle overflow - cascade to new pages using shared function
             const allOverflow=Array.from(pageDiv.querySelectorAll('.text-span')).filter(s=>{
                 const top=parseFloat(s.style.top);
                 const h=s._meta? s._meta.height*zoom : parseFloat(s.offsetHeight||s.style.fontSize);
-                return top+h>pageH-10;
+                return top+h>pageH-BOTTOM_PAD*zoom;
             });
             if(allOverflow.length>0){
-                // Create a new page for overflow content
-                const nextPageNum=allPages.length+1;
-                const nextPageDiv=createNewPage(nextPageNum,pageDiv.offsetWidth,pageDiv.offsetHeight);
-                viewer.appendChild(nextPageDiv);
-                setupDoubleClickOnPage(nextPageDiv);
-                allPages.push({pageNum:nextPageNum,width:pageDiv.offsetWidth/zoom,height:pageDiv.offsetHeight/zoom,lines:[]});
-                createNewThumbnail(nextPageNum);
-
-                let currentDiv=nextPageDiv;
-                let currentPageNum=nextPageNum;
-                const topOffset=20;
-                const maxYPx=currentDiv.offsetHeight-10; // Bottom margin in pixels
-                let curY=topOffset;
-
-                for(const os of allOverflow){
-                    const spanHeight=os._meta? os._meta.height : lineHeight;
-                    const spanHeightPx=spanHeight*zoom;
-                    // Check if current page has room (compare in pixels)
-                    if(curY+spanHeight>maxYPx/zoom){
-                        // Create another new page
-                        const nn=allPages.length+1;
-                        const nd=createNewPage(nn,currentDiv.offsetWidth,currentDiv.offsetHeight);
-                        viewer.appendChild(nd);
-                        setupDoubleClickOnPage(nd);
-                        allPages.push({pageNum:nn,width:currentDiv.offsetWidth/zoom,height:currentDiv.offsetHeight/zoom,lines:[]});
-                        createNewThumbnail(nn);
-                        currentDiv=nd;
-                        currentPageNum=nn;
-                        curY=topOffset;
-                    }
-
-                    // Move span to the new page
-                    os.style.top=(curY*zoom)+'px';
-                    if(os._meta){ os._meta.y=curY; os._meta.pageNum=currentPageNum; }
-                    os.dataset.page=currentPageNum;
-                    currentDiv.appendChild(os);
-                    curY+=spanHeight;
-                }
+                cascadeSpansToNewPages(allOverflow,pageDiv,meta.pageNum);
             }
 
             newSpan.focus();
             setCursorOffset(newSpan,0);
         }
 
-        function createNewSpan(pageNum,x,y,fontSize,text,fontName){
+        function createNewSpan(pageNum,x,y,fontSize,text,fontName,dir){
             const span=document.createElement('span');
             span.className='text-span';
             span.contentEditable='true';
@@ -531,8 +854,6 @@
             span.dataset.newText='true';
 
             span.style.position='absolute';
-            span.style.left=(x*zoom)+'px';
-            span.style.top=((y-fontSize)*zoom)+'px';
             span.style.fontSize=(fontSize*zoom)+'px';
             span.style.fontFamily=fontName?mapFontToWeb(fontName):mapFontToWeb(null);
             span.style.fontWeight='normal';
@@ -549,7 +870,14 @@
             span.style.pointerEvents='auto';
             span.style.userSelect='text';
 
-            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,isBold:false,isItalic:false,hasUnderline:false};
+            // Phase 2: direction
+            const resolvedDir = dir || documentDir;
+            span.setAttribute('dir', resolvedDir);
+
+            span._meta={pageNum,x,y,fontSize,fontName:fontName||null,width:(text||'').length*fontSize*0.6,height:fontSize,isBold:false,isItalic:false,hasUnderline:false,dir:resolvedDir};
+
+            // Position with direction awareness
+            positionSpan(span, span._meta);
 
             span.addEventListener('focus',()=>{
                 currentEditingEl=span;
@@ -566,7 +894,32 @@
                 boldBtn.style.background=span.style.fontWeight==='bold'?'rgba(0,212,255,0.3)':'';
                 italicBtn.style.background=span.style.fontStyle==='italic'?'rgba(0,212,255,0.3)':'';
                 underlineBtn.style.background=span.style.textDecoration==='underline'?'none':'';
+                // Phase 2: update direction toggle
+                $('dirToggle').value = span._meta.dir || 'ltr';
             });
+
+            // Phase 2: re-detect direction on first keystroke into empty span
+            span.addEventListener('input', function phase2Redetect(e){
+                if(span._meta._redetected) return;
+                const t = span.textContent;
+                const d = detectDirection(t);
+                if(d !== span._meta.dir){
+                    span._meta.dir = d;
+                    span.setAttribute('dir', d);
+                    // Re-position span if direction changed
+                    positionSpan(span, span._meta);
+                }
+                // After first real text input, mark as redetected
+                if(t.trim().length > 0) span._meta._redetected = true;
+            });
+
+            // Phase 3: directional overflow wrapping + Phase 5: edge guide
+            span.addEventListener('input', function(){
+                handleOverflowWrap(span);
+                showEdgeGuide(span);
+            });
+            span.addEventListener('focus', function(){ showEdgeGuide(span); });
+            span.addEventListener('blur', function(){ span.classList.remove('edge-guide'); });
 
             span.addEventListener('blur',()=>{
                 currentEditingEl=null;
@@ -649,15 +1002,65 @@
             }
         }
 
+        // ---- Phase 6: Arabic detection helper ----
+        function containsArabic(str) {
+            // Arabic Unicode range: U+0600–U+06FF, U+0750–U+077F, U+08A0–U+08FF, U+FB50–U+FDFF, U+FE70–U+FEFF
+            return /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(str);
+        }
+
+        // ---- Phase 6: Hard boundary clamp for draw position ----
+        function clampDrawPosition(x, drawWidth, pageWidth) {
+            if (x < 4) x = 4;
+            if (x + drawWidth > pageWidth - 4) x = pageWidth - 4 - drawWidth;
+            return x;
+        }
+
+        // ---- Phase 6: Load font helper ----
+        async function loadHebrewFont(doc, isBold) {
+            const url = isBold ? '../fonts/NotoSansHebrew-Bold.ttf' : '../fonts/NotoSansHebrew-Regular.ttf';
+            const resp = await fetch(url);
+            if (!resp.ok) throw new Error('Failed to load ' + url + ': ' + resp.status);
+            const fontBytes = await resp.arrayBuffer();
+            return await doc.embedFont(fontBytes);
+        }
+
         async function exportPDF(){
             progressBar.style.display='block'; progressFill.style.width='30%'; resultArea.style.display='none';
             try{
                 const ab=await currentFile.arrayBuffer(), bytes=new Uint8Array(ab);
                 const doc=await PDFLib.PDFDocument.load(bytes.slice());
-                progressFill.style.width='50%';
+
+                // Phase 6: Register fontkit for custom fonts
+                const fk = typeof window.fontkit !== 'undefined' ? window.fontkit : fontkit;
+                if (!fk) throw new Error('fontkit not loaded');
+                doc.registerFontkit(fk);
+
+                progressFill.style.width='40%';
                 const helvetica=await doc.embedFont(PDFLib.StandardFonts.Helvetica);
                 const times=await doc.embedFont(PDFLib.StandardFonts.TimesRoman);
                 const courier=await doc.embedFont(PDFLib.StandardFonts.Courier);
+
+                // Phase 6: Pre-check for Arabic text
+                const allSpans=document.querySelectorAll('.text-span');
+                let arabicFound=false;
+                for(const span of allSpans){
+                    const nt=span.textContent;
+                    if(containsArabic(nt)){ arabicFound=true; break; }
+                }
+                if(arabicFound){
+                    alert('Arabic text detected. Arabic shaping is not supported. Please remove Arabic text and try again.');
+                    progressBar.style.display='none';
+                    return;
+                }
+
+                // Phase 6: Try to load Hebrew font (fail fast with clear error)
+                let hebrewFont, hebrewBold;
+                try {
+                    hebrewFont = await loadHebrewFont(doc, false);
+                    hebrewBold = await loadHebrewFont(doc, true);
+                } catch(err) {
+                    throw new Error('Cannot load Hebrew font: ' + err.message + '. Ensure fonts/NotoSansHebrew-*.ttf exist.');
+                }
 
                 // Add new pages if any were created
                 const originalPages=doc.getPageCount();
@@ -665,33 +1068,89 @@
                     const pg=allPages[i-1];
                     const pe=document.getElementById('pdf-page-'+i);
                     if(pe) doc.addPage([pe.offsetWidth,pe.offsetHeight]);
-                    else doc.addPage([612,792]); // Default letter size
+                    else doc.addPage([612,792]);
                 }
 
-                const spans=document.querySelectorAll('.text-span');
-                for(const span of spans){
+                for(const span of allSpans){
                     const nt=span.textContent, orig=span.dataset.originalText;
                     if(nt===orig && !span.dataset.newText) continue;
                     const m=span._meta, pg=doc.getPage(m.pageNum-1);
                     const {width:pw,height:ph}=pg.getSize();
                     const pe=document.getElementById('pdf-page-'+m.pageNum);
                     const sx=pw/pe.offsetWidth, sy=ph/pe.offsetHeight;
-                    const x=m.x*sx, y=ph-(m.y*sy), fs=m.fontSize*Math.min(sx,sy), tw=m.width*sx;
-                    let font=helvetica;
-                    if(m.fontName&&(/times|roman/i.test(m.fontName))) font=times;
-                    else if(m.fontName&&(/courier|mono/i.test(m.fontName))) font=courier;
+                    const fs=m.fontSize*Math.min(sx,sy);
+
+                    // Phase 6: Choose font based on direction
+                    let font;
+                    if(m.dir === 'rtl') {
+                        // Hebrew: use Noto Sans Hebrew
+                        font = m.isBold ? hebrewBold : hebrewFont;
+                    } else {
+                        // LTR: use standard fonts
+                        font = helvetica;
+                        if(m.fontName&&(/times|roman/i.test(m.fontName))) font=times;
+                        else if(m.fontName&&(/courier|mono/i.test(m.fontName))) font=courier;
+                    }
+
+                    // Phase 6: bidi-js for RTL text
+                    const bidiLib = typeof window.bidi_js !== 'undefined' ? window.bidi_js() : null;
+                    let displayText = nt;
+                    if(m.dir === 'rtl' && bidiLib) {
+                        const embedLevels = bidiLib.getEmbeddingLevels(nt, 'rtl');
+                        const indices = bidiLib.getReorderedIndices(nt, embedLevels);
+                        // Rebuild string using reordered indices
+                        const chars = nt.split('');
+                        displayText = indices.map(i => chars[i]).join('');
+                    }
+
+                    // Phase 6: Measure text width
+                    const textWidth = font.widthOfTextAtSize(displayText, fs);
+                    let drawX;
+
+                    if(m.dir === 'rtl') {
+                        // Phase 6: RTL draw position = anchorRight - textWidth
+                        // For RTL spans: m.x is stored as anchorRight for RTL (x + width from _meta)
+                        const anchorRight = (m.x + m.width) * sx;
+                        drawX = anchorRight - textWidth;
+                    } else {
+                        // LTR: standard positioning
+                        drawX = m.x * sx;
+                    }
+
+                    // Phase 6: Hard boundary clamp
+                    drawX = clampDrawPosition(drawX, textWidth, pw);
+                    const drawY = ph - (m.y * sy);
+
                     // If editing existing text, white out first
                     if(!span.dataset.newText){
-                        pg.drawLine({start:{x:x-2,y:y+fs*0.8},end:{x:x+tw+2,y:y+fs*0.8},thickness:fs*1.3,color:PDFLib.rgb(1,1,1)});
+                        const tw = m.width * sx;
+                        pg.drawLine({
+                            start:{x: drawX - 2, y: drawY + fs*0.8},
+                            end:{x: drawX + tw + 2, y: drawY + fs*0.8},
+                            thickness: fs*1.3,
+                            color: PDFLib.rgb(1,1,1)
+                        });
                     }
-                    pg.drawText(nt,{x,y:y+fs*0.15,size:fs,font,color:PDFLib.rgb(0,0,0)});
+
+                    pg.drawText(displayText, {
+                        x: drawX,
+                        y: drawY + fs*0.15,
+                        size: fs,
+                        font: font,
+                        color: PDFLib.rgb(0,0,0)
+                    });
                 }
+
                 progressFill.style.width='90%';
                 const pb=await doc.save(), blob=new Blob([pb],{type:'application/pdf'});
                 downloadLink.href=URL.createObjectURL(blob); downloadLink.download='edited.pdf';
                 progressFill.style.width='100%';
                 setTimeout(()=>{progressBar.style.display='none';resultArea.style.display='block';},300);
-            }catch(err){console.error('Export failed:',err); alert('Export failed: '+err.message); progressBar.style.display='none';}
+            }catch(err){
+                console.error('Export failed:',err);
+                alert('Export failed: '+err.message);
+                progressBar.style.display='none';
+            }
         }
 
         function resetEditor(){
@@ -701,6 +1160,12 @@
             editorArea.style.display='none'; fileInput.value=''; updateChangeCount();
         }
         function updateChangeCount(){changeCountEl.textContent=changes+(changes===1?' change':' changes');}
+
+        // ---- Phase 1 verification ----
+        (function(){
+            console.log('[Phase 1] getPageBounds verified for each page:');
+            // Will be called after load to log bounds
+        })();
 
 
     </script>
